@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id    String @id @default(cuid())
+  name  String @unique // like "ADMIN", "CUSTOMER"
+  users User[]
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String?
+  gender    String? 
+  roleId    String
+  role      Role      @relation(fields: [roleId], references: [id])
+  orders    Order[]
+  addresses Address[]
+  cart      Cart?
+  reviews   Review[]
+  createdAt DateTime  @default(now())
+}
+
+model Category {
+  id            String      @id @default(cuid())
+  name          String      @unique
+  parentId      String?     
+  parent        Category?   @relation("Subcategories", fields: [parentId], references: [id])
+  subcategories Category[]  @relation("Subcategories")
+  products      Product[]
+}
+
+
+model Product {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  stock       Int 
+  categoryId  String?
+  category    Category?      @relation(fields: [categoryId], references: [id])
+  images      ProductImage[]
+  createdAt   DateTime       @default(now())
+  orderItems  OrderItem[]
+  cartItems   CartItem[]
+  reviews     Review[]
+  sizes       ProductSize[] 
+}
+
+model ProductSize {
+  id         String      @id @default(cuid())
+  size       String // example 'S', 'M', 'L', 'XL'
+  stock      Int
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id])
+  orderItems OrderItem[] @relation("SizeOnOrderItems")
+
+  @@unique([size, productId]) // prevent duplicate sizes 
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  url       String
+  publicId  String? 
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Cart {
+  id     String     @id @default(cuid())
+  userId String?    @unique
+  user   User?      @relation(fields: [userId], references: [id])
+  items  CartItem[]
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int
+  cart      Cart    @relation(fields: [cartId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Address {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  fullName   String
+  phone      String
+  altPhone   String? // Optional
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  country    String
+  postalCode String
+  isDefault  Boolean @default(false)
+
+  orders Order[] 
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  PAID
+  RETURN_REQUESTED
+  RETURNED
+}
+
+model Order {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  items        OrderItem[]
+  addressId    String?
+  address      Address?      @relation(fields: [addressId], references: [id])
+  total        Float
+  status       OrderStatus   @default(PENDING)
+  createdAt    DateTime      @default(now())
+  payment      Payment?
+  refund       Refund?
+  refunddetail RefundDetail?
+}
+
+model OrderItem {
+  id        String       @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  sizeId    String?
+  size      ProductSize? @relation("SizeOnOrderItems", fields: [sizeId], references: [id])
+  order     Order        @relation(fields: [orderId], references: [id])
+  product   Product      @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id])
+  amount        Float
+  method        String
+  status        String // e.g. "PAID", "FAILED"
+  transactionId String?
+  createdAt     DateTime @default(now())
+}
+
+model AdminActivity {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  target    String
+  timestamp DateTime @default(now())
+}
+
+model Refund {
+  id            String   @id @default(cuid())
+  orderId       String   @unique 
+  order         Order    @relation(fields: [orderId], references: [id])
+  amount        Float
+  deduction     Float
+  reason        String
+  status        String // PROCESSED | MANUAL
+  transactionId String?
+  createdAt     DateTime @default(now())
+}
+
+// for COD
+model RefundDetail {
+  id            String    @id @default(cuid())
+  orderId       String    @unique
+  order         Order     @relation(fields: [orderId], references: [id])
+  fullName      String
+  upiId         String?
+  accountNumber String?
+  ifscCode      String?
+  bankName      String?
+  createdAt     DateTime  @default(now())
+  deletedAt     DateTime? // soft delete 
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId]) // One review per user per product
+}
+
+model Promotion {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  description String?
+  discount    Float // eg:- 10 for 10%
+  type        String // 'percentage' | 'fixed'
+  isActive    Boolean  @default(true)
+  startsAt    DateTime
+  endsAt      DateTime
+  createdAt   DateTime @default(now())
+}

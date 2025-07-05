@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon --exec ts-node-dev --respawn --transpile-only src/index.ts",
+    "seed": "ts-node -r dotenv/config src/prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -12,8 +13,11 @@
   "type": "commonjs",
   "devDependencies": {
     "@types/cors": "^2.8.19",
+    "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
     "nodemon": "^3.1.10",
+    "prisma": "^6.13.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
   },
@@ -24,7 +28,6 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "prisma": "^6.13.0",
     "zod": "^4.0.13"
   }
 }
