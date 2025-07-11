@@ -23,7 +23,7 @@ model User {
   role      Role      @relation(fields: [roleId], references: [id])
   orders    Order[]
   addresses Address[]
-  cart      Cart?
+ 
   reviews   Review[]
   createdAt DateTime  @default(now())
 }
@@ -49,7 +49,7 @@ model Product {
   images      ProductImage[]
   createdAt   DateTime       @default(now())
   orderItems  OrderItem[]
-  cartItems   CartItem[]
+  
   reviews     Review[]
   sizes       ProductSize[] 
 }
@@ -73,21 +73,8 @@ model ProductImage {
   product   Product @relation(fields: [productId], references: [id])
 }
 
-model Cart {
-  id     String     @id @default(cuid())
-  userId String?    @unique
-  user   User?      @relation(fields: [userId], references: [id])
-  items  CartItem[]
-}
 
-model CartItem {
-  id        String  @id @default(cuid())
-  cartId    String
-  productId String
-  quantity  Int
-  cart      Cart    @relation(fields: [cartId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
-}
+
 
 model Address {
   id     String @id @default(cuid())
