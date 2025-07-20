@@ -30,6 +30,9 @@ app.use(
 app.use(express.json());
 
 // Routes for user
+app.get("/", (_,res)=>{
+  res.send("welcome to the E-commerce"); 
+});  //  
 app.use("/api/products", productRoutes);  //  
 app.use("/api/auth", authRoutes);   // 
 app.use("/api/order", orderRoutes); // 
