@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAuthToken } from '@/lib/utils/auth';
-import { Package, Plus, Edit3, Trash2, Search, Filter, TrendingUp, AlertCircle } from 'lucide-react';
+import { Package, Plus,  Search, Filter, TrendingUp, AlertCircle } from 'lucide-react';
 
 type Product = {
   id: string;
@@ -47,22 +47,37 @@ export default function AdminProductsPage() {
   }, []);
 
   async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this product?')) return;
-    setDeleteLoading(id);
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-      });
-      setProducts(prev => prev.filter(p => p.id !== id));
-    } catch (err) {
-      console.error('Delete failed', err);
-    } finally {
-      setDeleteLoading(null);
+  if (!confirm('Are you sure you want to delete this product? This will permanently delete the product, its variants, images, and all related data.')) return;
+  
+  setDeleteLoading(id);
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${getAuthToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+  
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Failed to delete product' }));
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
+
+    setProducts(prev => prev.filter(p => p.id !== id));
+    
+    // Optional: Show success message
+    console.log('Product deleted successfully');
+    
+  } catch (err) {
+    console.error('Delete failed:', err);
+    // Optional: Show error message to user
+    alert(`Failed to delete product: ${err instanceof Error ? err.message : 'Unknown error'}`);
+  } finally {
+    setDeleteLoading(null);
   }
+}
 
   const filteredProducts = products.filter(product => {
     const matchesSearch =
@@ -109,7 +124,7 @@ export default function AdminProductsPage() {
             </Link>
           </div>
 
-          {/* Stats */}
+       
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mt-4 sm:mt-6">
             <StatsCard icon={<Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />} label="Total Products" value={products.length} color="from-blue-500 to-blue-600" />
             <StatsCard icon={<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />} label="Inventory Value" value={`₹${totalValue.toLocaleString()}`} color="from-green-500 to-teal-600" />
@@ -182,7 +197,7 @@ export default function AdminProductsPage() {
   );
 }
 
-// --- Components ---
+// Components
 function StatsCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number | string; color: string }) {
   return (
     <div className={`p-3 sm:p-4 rounded-xl bg-gradient-to-r ${color} text-white`}>

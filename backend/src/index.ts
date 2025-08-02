@@ -45,8 +45,8 @@ app.use("/api/promo", PromoRoutes); // here admin also can access the promo rout
 // Admin routes (protected)
 app.use("/api/admin", adminRoutes); // 
 app.use("/api/admin/products", adminProductRoutes); //  
-app.use("/api/admin/category", adminCategoryRoutes);// // modules/admin/category
-app.use("/api/admin/users", adminUsersRoutes); // // modules/admin/user
+app.use("/api/admin/category", adminCategoryRoutes);//
+app.use("/api/admin/users", adminUsersRoutes); // // 
 app.use("/api/admin/reviews", adminReviewRoutes);
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 

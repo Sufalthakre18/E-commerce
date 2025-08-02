@@ -28,29 +28,57 @@ export const ProductController = {
     res.json(result);
   },  // used by user to get all products,
   async create(req: Request, res: Response) {
-    try {
-      const files = req.files as Express.Multer.File[];
-      const uploads = await Promise.all(
-        files.map((f) => uploadOnCloudinary(f.path))
-      );
+  try {
+    const files = req.files as Express.Multer.File[];
+    
+    
+    const uploads = await Promise.all(
+      files.map((f) => uploadOnCloudinary(f.path))
+    );
 
-      const successes = uploads.filter((u): u is UploadApiResponse => !!u);
-      const imageData = successes.map((u) => ({
-        url: u.secure_url,
-        publicId: u.public_id,
+    const successes = uploads.filter((u): u is UploadApiResponse => !!u);
+    const allImageData = successes.map((u) => ({
+      url: u.secure_url,
+      publicId: u.public_id,
+    }));
+
+    let processedData = { ...req.body };
+    
+    if (req.body.variants) {
+      const variants = typeof req.body.variants === 'string' 
+        ? JSON.parse(req.body.variants) 
+        : req.body.variants;
+      
+      const processedVariants = variants.map((variant: any) => ({
+        ...variant,
+        images: variant.imageIndices 
+          ? variant.imageIndices.map((index: number) => allImageData[index])
+          : []
       }));
-
-      const product = await productService.create({
-        ...req.body,
-        images: imageData,
-      });
-
-      res.status(201).json(product);
-    } catch (err) {
-      console.error("product creation failed:", err);
-      res.status(500).json({ error: "failed to create product" });
+      
+      processedData.variants = processedVariants;
     }
+
+    const usedImageIndices = new Set();
+    if (processedData.variants) {
+      processedData.variants.forEach((v: any) => {
+        if (v.imageIndices) {
+          v.imageIndices.forEach((index: number) => usedImageIndices.add(index));
+        }
+      });
+    }
+    
+    const generalImages = allImageData.filter((_, index) => !usedImageIndices.has(index));
+    processedData.images = generalImages;
+
+    const product = await productService.create(processedData);
+    res.status(201).json(product);
+    
+  } catch (err) {
+    console.error("product creation failed:", err);
+    res.status(500).json({ error: "failed to create product" });
   }
+}
   ,
   async update(req: Request, res: Response) {
     const { id } = req.params;
@@ -102,11 +130,18 @@ export const ProductController = {
 
   async delete(req: Request, res: Response) {
   try {
-    await productService.delete(req.params.id);
-    res.status(204).send(); // No content
+    const result = await productService.delete(req.params.id);
+    res.status(200).json(result); 
   } catch (err) {
-    console.error("product delete error:", err);
-    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to delete product" });
+    console.error("Product delete error:", err);
+    
+    if (err instanceof Error && err.message === "Product not found") {
+      res.status(404).json({ error: "Product not found" });
+    } else {
+      res.status(500).json({ 
+        error: err instanceof Error ? err.message : "Failed to delete product" 
+      });
+    }
   }
 }
 , // used by admin to delete a 
