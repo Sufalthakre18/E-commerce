@@ -47,7 +47,7 @@ export function CartView() {
 
       {items.map((item) => (
         <div
-          key={`${item.id}-${item.sizeId ?? 'nosize'}`} // ✅ Unique composite key
+          key={`${item.id}-${item.sizeId ?? 'nosize'}`} 
           className="flex gap-4 items-center border p-2 rounded-lg"
         >
           <div className="relative h-16 w-16 rounded overflow-hidden">

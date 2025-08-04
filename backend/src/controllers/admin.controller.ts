@@ -17,7 +17,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
       take: limit,
       include: {
         user: true,
-        items: { include: { product: true , size:true} },
+        items: { include: { product: true , size:true, variant:true} },
         address: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -134,7 +134,8 @@ export const getOrderById = async (req: Request, res: Response) => {
                 category: true,
               },
             },
-            size: true, // this gives size info in each item
+            size: true, 
+            variant: true, 
           },
         },
         payment: true,

@@ -13,6 +13,7 @@ export const ProductController = {
       search,
       minPrice,
       maxPrice,
+      type,
     } = req.query;
 
     const filters = {
@@ -22,6 +23,8 @@ export const ProductController = {
       search: search as string,
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      
+      type:type as string,
     };
 
     const result = await productService.getAllPaginated(filters);
@@ -81,52 +84,81 @@ export const ProductController = {
 }
   ,
   async update(req: Request, res: Response) {
-    const { id } = req.params;
-    const files = req.files as Express.Multer.File[];
+  const { id } = req.params;
 
-    
-    const { imagesToDelete, ...rest } = req.body;
+  const filesByField = req.files as {
+    [field: string]: Express.Multer.File[];
+  };
 
-    try {
- 
-      let newImages: { url: string; publicId: string }[] = [];
+  const productFiles = filesByField["images"] || [];
+  const variantFiles = filesByField["variantImages"] || [];
 
-      if (files && files.length) {
-        const uploads = await Promise.all(
-          files.map((f) => uploadOnCloudinary(f.path))
-        );
+  const { imagesToDelete, variants: rawVariants, ...rest } = req.body;
+  const variants = typeof rawVariants === "string"
+    ? JSON.parse(rawVariants)
+    : rawVariants;
 
-        const successes = uploads.filter(
-          (u): u is UploadApiResponse => !!u
-        );
+  try {
+    const productUploads = await Promise.all(
+      productFiles.map((f) => uploadOnCloudinary(f.path))
+    );
+    const newImages = productUploads
+      .filter((u): u is UploadApiResponse => !!u)
+      .map((u) => ({ url: u.secure_url, publicId: u.public_id }));
 
-        newImages = successes.map((u) => ({
+    const variantIndexes = Array.isArray(req.body.variantImageIndexes)
+      ? req.body.variantImageIndexes.map((s: string) => parseInt(s, 10))
+      : req.body.variantImageIndexes 
+        ? [parseInt(req.body.variantImageIndexes, 10)]
+        : [];
+
+    const variantUploads = await Promise.all(
+      variantFiles.map((f) => uploadOnCloudinary(f.path))
+    );
+
+    const variantImagesMap: Record<number, { url: string; publicId: string }[]> = {};
+    variantUploads.forEach((u, idx) => {
+      if (!u) return;
+      const vi = variantIndexes[idx];
+      if (vi !== undefined) {
+        variantImagesMap[vi] = variantImagesMap[vi] || [];
+        variantImagesMap[vi].push({
           url: u.secure_url,
           publicId: u.public_id,
-        }));
+        });
       }
+    });
 
-   
-      let imagesToDeleteArray: string[] = [];
-      if (typeof imagesToDelete === "string") {
-        imagesToDeleteArray = [imagesToDelete];
-      } else if (Array.isArray(imagesToDelete)) {
-        imagesToDeleteArray = imagesToDelete;
-      }
-
-
-      const updatedProduct = await productService.update(id, {
-        ...rest,
-        images: newImages,
-        imagesToDelete: imagesToDeleteArray,
-      });
-
-      res.json(updatedProduct);
-    } catch (err) {
-      console.error("product update error:", err);
-      res.status(500).json({ error: "Failed to update product" });
+    let imagesToDeleteArray: string[] = [];
+    if (typeof imagesToDelete === "string") {
+      imagesToDeleteArray = [imagesToDelete];
+    } else if (Array.isArray(imagesToDelete)) {
+      imagesToDeleteArray = imagesToDelete;
     }
-  },
+
+    const processedVariants = variants.map((v: any, idx: number) => ({
+      ...v,
+      existingImages: (v.existingImages || []).filter((img: any) => 
+        !v.imagesToDelete?.includes(img.id)
+      ),
+      newImages: variantImagesMap[idx] || [],
+    }));
+
+
+    const updatedProduct = await productService.update(id, {
+      ...rest,
+      images: newImages,
+      imagesToDelete: imagesToDeleteArray,
+      variants: processedVariants,
+    });
+
+    res.json(updatedProduct);
+  } catch (err) {
+    console.error("product update error:", err);
+    res.status(500).json({ error: "Failed to update product" });
+  }
+}
+ ,
 
   async delete(req: Request, res: Response) {
   try {

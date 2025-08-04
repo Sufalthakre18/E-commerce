@@ -18,6 +18,9 @@ interface ProductListProps {
   isLoading: boolean;
 }
 
+
+
+
 export const ProductList: FC<ProductListProps> = ({ products, isLoading }) => {
   if (isLoading) return <p>Loading...</p>;
   if (!products || products.length === 0) return <p>No products found.</p>;

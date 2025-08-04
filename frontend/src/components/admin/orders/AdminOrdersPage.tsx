@@ -24,6 +24,12 @@ type OrderItem = {
     name: string;
     price: number;
   };
+  variant?: {
+    id: string;
+    color: string;
+    colorCode: string;
+    price: number;
+  };
 };
 
 type Address = {
@@ -256,7 +262,7 @@ export default function AdminOrdersPage() {
     'Phone',
     'Alt Phone',
     'Address',
-    'Items (Name × Qty × Size)', // ← updated
+    'Items (Name × Qty × Size x Variant)', 
     'Status',
     'Total (₹)',
     'Date'
@@ -270,7 +276,8 @@ export default function AdminOrdersPage() {
     const itemList = order.items
       .map(item => {
         const sizeLabel = item.size?.size ? ` (${item.size.size})` : '';
-        return `${item.product.name}${sizeLabel} x${item.quantity}`;
+        const variantLabel = item.variant ? ` (${item.variant.color}  ${item.variant.price})` : '';
+        return `${item.product.name}${sizeLabel} x${item.quantity} x ${variantLabel}`; 
       })
       .join(' | ');
 
@@ -319,6 +326,7 @@ export default function AdminOrdersPage() {
     <div className="min-h-screen bg-gray-50/50">
       <div className="p-6 max-w-6xl mx-auto space-y-6">
         {/* Header */}
+        <h1>Lorem ipsum dolor sit amet consectetur adipisicing elit. Impedit, quis.</h1>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">

@@ -21,6 +21,17 @@ interface Order {
     id: string;
     orderId: string;
     quantity: number;
+    size?: {
+      id: string;
+      size: string;
+    };
+    variant?: {
+      id: string;
+      color: string;
+      colorCode: string;
+      price: number;
+    };
+
     product: {
       name: string;
       price: number;
@@ -102,33 +113,33 @@ export default function OrdersPage() {
     setShowRefundModal(true);
   };
 
-const handleReturnAfterRefundDetails = async () => {
-  if (!selectedOrderId) return;
+  const handleReturnAfterRefundDetails = async () => {
+    if (!selectedOrderId) return;
 
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/order/return/${selectedOrderId}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/order/return/${selectedOrderId}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${getAuthToken()}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        console.error('❌ Return failed:', errorData);
+        throw new Error(errorData?.error || 'Something went wrong while processing return.');
       }
-    );
 
-    if (!res.ok) {
-      const errorData = await res.json();
-      console.error('❌ Return failed:', errorData);
-      throw new Error(errorData?.error || 'Something went wrong while processing return.');
+      toast.success('✅Return request submitted successfully');
+      setShowRefundModal(false);
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(`Return failed: ${err.message || 'Unknown error'}`);
     }
-
-    toast.success('✅Return request submitted successfully');
-    setShowRefundModal(false);
-    window.location.reload();
-  } catch (err: any) {
-    toast.error(`Return failed: ${err.message || 'Unknown error'}`);
-  }
-};
+  };
 
 
   if (loading) return <p className="text-center mt-10">Loading your orders...</p>;
@@ -153,19 +164,18 @@ const handleReturnAfterRefundDetails = async () => {
           <div className="text-lg font-semibold">
             ₹{order.total} –{' '}
             <span
-              className={`inline-block px-2 py-0.5 rounded text-xs ${
-                order.status === 'PAID'
-                  ? 'bg-green-100 text-green-700'
-                  : order.status === 'PENDING'
+              className={`inline-block px-2 py-0.5 rounded text-xs ${order.status === 'PAID'
+                ? 'bg-green-100 text-green-700'
+                : order.status === 'PENDING'
                   ? 'bg-yellow-100 text-yellow-800'
                   : order.status === 'CANCELLED'
-                  ? 'bg-red-100 text-red-700'
-                  : order.status === 'RETURN_REQUESTED'
-                  ? 'bg-purple-100 text-purple-700'
-                  : order.status === 'DELIVERED'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-gray-100 text-gray-700'
-              }`}
+                    ? 'bg-red-100 text-red-700'
+                    : order.status === 'RETURN_REQUESTED'
+                      ? 'bg-purple-100 text-purple-700'
+                      : order.status === 'DELIVERED'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
+                }`}
             >
               {order.status}
             </span>
@@ -189,8 +199,20 @@ const handleReturnAfterRefundDetails = async () => {
                   />
                   <div>
                     <p className="text-sm font-medium">{product?.name}</p>
+                    {item.variant && (
+  <p className="text-xs text-gray-500 flex items-center gap-2">
+    Color: {item.variant.color}
+    <span
+      className="w-3 h-3 rounded-full border"
+      style={{ backgroundColor: item.variant.colorCode }}
+    />
+  </p>
+)}
+
+
                     <p className="text-xs text-gray-600">
-                      Qty: {item.quantity} – ₹{product?.price}
+                      Qty: {item.quantity} – ₹{item.variant?.price || product?.price}
+
                     </p>
                   </div>
                 </div>

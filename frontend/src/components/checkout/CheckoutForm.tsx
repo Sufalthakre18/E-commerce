@@ -64,6 +64,7 @@ export function CheckoutForm() {
         productId: item.id,
         quantity: item.quantity,
         sizeId: item.sizeId,
+        variantId: item.variantId 
       })),
       total: totalPrice(),
     };

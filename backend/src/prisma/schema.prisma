@@ -46,6 +46,7 @@ model Product {
   stock       Int 
   categoryId  String?
   category    Category?      @relation(fields: [categoryId], references: [id])
+  type        String?
   images      ProductImage[]
   createdAt   DateTime       @default(now())
   orderItems  OrderItem[]
@@ -53,6 +54,8 @@ model Product {
   reviews     Review[]
   sizes       ProductSize[] 
   variants    ProductVariant[]
+
+  @@index([type])  // this is use for speed to search product with query of type
 }
 model ProductSize {
   id         String      @id @default(cuid())

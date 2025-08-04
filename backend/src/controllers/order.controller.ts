@@ -26,6 +26,7 @@ export const OrderController = {
               productId: item.productId,
               quantity: item.quantity,
               sizeId: item.sizeId ?? null,
+              variantId: item.variantId ?? null
             })),
           },
         },

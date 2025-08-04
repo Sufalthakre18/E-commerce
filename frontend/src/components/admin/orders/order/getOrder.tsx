@@ -241,6 +241,12 @@ const OrderDetailPage = () => {
                           <span>Size: {item.size?.size || '—'}</span>
                           <span>•</span>
                           <span>Category: {item.product.category?.name || '—'}</span>
+                          {item.variant && (
+                            <>
+                              <span>•</span>
+                              <span>Color: {item.variant.color}</span>
+                            </>
+                          )}
                         </div>
 
                       </div>

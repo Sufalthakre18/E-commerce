@@ -4,12 +4,11 @@ import { isAdmin, verifyUser } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-router.use(verifyUser,isAdmin); // verifyUser all routes
 
-router.post("/", AdminCategoryController.create);
-router.put("/:id", AdminCategoryController.update);
-router.delete("/:id", AdminCategoryController.delete);
+router.post("/",verifyUser,isAdmin, AdminCategoryController.create);
+router.put("/:id",verifyUser,isAdmin, AdminCategoryController.update);
+router.delete("/:id",verifyUser,isAdmin, AdminCategoryController.delete);
 router.get("/", AdminCategoryController.list);
-router.get("/:id/subcategories", AdminCategoryController.subcategories);
+router.get("/:id/subcategories",verifyUser,isAdmin, AdminCategoryController.subcategories);
 
 export default router;

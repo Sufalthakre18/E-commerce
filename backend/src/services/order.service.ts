@@ -5,7 +5,7 @@ export const OrderService = {
     async createOrderWithRazorpayManual(
         userId: string,
         addressId: string,
-        items: { productId: string; quantity: number; sizeId?: string | null }[],
+        items: { productId: string; quantity: number; sizeId?: string | null;variantId?: string | null }[],
         total: number
     ) {
         if (items.length === 0) throw new Error("Cart is empty");
@@ -21,6 +21,7 @@ export const OrderService = {
                         productId: item.productId,
                         quantity: item.quantity,
                         sizeId: item.sizeId ?? null,
+                        variantId: item.variantId ?? null
                     })),
                 },
             },
@@ -55,6 +56,7 @@ export const OrderService = {
                                 },
                             },
                             size: true,
+                            variant: true,
                         },
                     },
                     payment: true,
@@ -124,7 +126,7 @@ export const OrderService = {
     async createCODOrderManual(
         userId: string,
         addressId: string,
-        items: { productId: string; quantity: number; sizeId?: string | null }[]
+        items: { productId: string; quantity: number; sizeId?: string | null;variantId?: string | null }[]
         ,
         total: number
     ) {
@@ -141,7 +143,9 @@ export const OrderService = {
                         productId: item.productId,
                         quantity: item.quantity,
 
-                        sizeId: item.sizeId ?? null
+                        sizeId: item.sizeId ?? null,
+                        variantId: item.variantId ?? null
+                        
                     })),
                 },
                 payment: {
