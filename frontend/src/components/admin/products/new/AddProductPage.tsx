@@ -25,16 +25,18 @@ interface Variant {
 export default function AddProductPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
-  
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    details: '',
     price: '',
     stock: '',
-    categoryId: ''
+    categoryId: '',
+    type: ''
   })
-  
+
   const [images, setImages] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [sizes, setSizes] = useState<Size[]>([{ size: '', stock: 0 }])
@@ -48,9 +50,9 @@ export default function AddProductPage() {
   const fetchCategories = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`, {
-          headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
       })
       const data = await res.json()
       setCategories(data)
@@ -70,14 +72,14 @@ export default function AddProductPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFilesArray = Array.from(e.target.files)
-      
-     
+
+
       setImages(prevImages => [...prevImages, ...newFilesArray])
-      
+
       const newPreviews = newFilesArray.map(file => URL.createObjectURL(file))
       setImagePreviews(prevPreviews => [...prevPreviews, ...newPreviews])
-      
-      
+
+
       e.target.value = ''
     }
   }
@@ -113,18 +115,18 @@ export default function AddProductPage() {
   const removeImage = (index: number) => {
 
     setImages(prevImages => prevImages.filter((_, i) => i !== index))
-    
+
     if (imagePreviews[index]) {
       URL.revokeObjectURL(imagePreviews[index])
     }
     setImagePreviews(prevPreviews => prevPreviews.filter((_, i) => i !== index))
-    
-    setVariants(prevVariants => 
+
+    setVariants(prevVariants =>
       prevVariants.map(variant => ({
         ...variant,
         imageIndices: variant.imageIndices
-          .filter(i => i !== index) 
-          .map(i => i > index ? i - 1 : i) 
+          .filter(i => i !== index)
+          .map(i => i > index ? i - 1 : i)
       }))
     )
   }
@@ -132,15 +134,15 @@ export default function AddProductPage() {
   const toggleImageForVariant = (variantIndex: number, imageIndex: number) => {
     const updated = [...variants]
     const currentIndices = updated[variantIndex].imageIndices
-    
+
     if (currentIndices.includes(imageIndex)) {
-     
+
       updated[variantIndex].imageIndices = currentIndices.filter(i => i !== imageIndex)
     } else {
-  
+
       updated[variantIndex].imageIndices = [...currentIndices, imageIndex]
     }
-    
+
     setVariants(updated)
   }
 
@@ -150,7 +152,7 @@ export default function AddProductPage() {
 
     try {
       const formDataToSend = new FormData()
-      
+
       Object.entries(formData).forEach(([key, value]) => {
         formDataToSend.append(key, value)
       })
@@ -177,8 +179,8 @@ export default function AddProductPage() {
 
       if (response.ok) {
         alert('Product added successfully!')
-       
-        setFormData({ name: '', description: '', price: '', stock: '', categoryId: '' })
+
+        setFormData({ name: '', description: '', price: '', stock: '', categoryId: '', type: '', details: '' })
         setImages([])
         setImagePreviews([])
         setSizes([{ size: '', stock: 0 }])
@@ -196,19 +198,19 @@ export default function AddProductPage() {
 
   const renderCategoryOptions = (cats: Category[], level = 0): React.ReactElement[] => {
     const options: React.ReactElement[] = []
-    
+
     cats.forEach(cat => {
       options.push(
         <option key={cat.id} value={cat.id}>
           {'—'.repeat(level)} {cat.name}
         </option>
       )
-      
+
       if (cat.subcategories && cat.subcategories.length > 0) {
         options.push(...renderCategoryOptions(cat.subcategories, level + 1))
       }
     })
-    
+
     return options
   }
 
@@ -220,15 +222,15 @@ export default function AddProductPage() {
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Add New Product</h1>
           <p className="text-gray-600">Create a new product with variants, sizes, and images</p>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="space-y-8">
-        
+
           <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
               <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold mr-3">1</span>
               Basic Information
             </h2>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">Product Name</label>
@@ -242,7 +244,7 @@ export default function AddProductPage() {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-700">Base Price</label>
                 <div className="relative">
@@ -254,11 +256,29 @@ export default function AddProductPage() {
                     onChange={handleInputChange}
                     className="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     placeholder="0.00"
-                    step="0.01"
+                    step="0"
                     required
                   />
                 </div>
               </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Product Type</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500"></span>
+                  <input
+                    type="string"
+                    name="type"
+                    value={formData.type}
+                    onChange={handleInputChange}
+                    className="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    placeholder="Enter product type"
+
+                    required
+                  />
+                </div>
+              </div>
+             
+
             </div>
 
             <div className="mt-6 space-y-2">
@@ -270,6 +290,17 @@ export default function AddProductPage() {
                 rows={4}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
                 placeholder="Describe your product..."
+              />
+            </div>
+            <div className="mt-6 space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Details</label>
+              <textarea
+                name="details"
+                value={formData.details}
+                onChange={handleInputChange}
+                rows={4}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 resize-none"
+                placeholder="Describe your product details as •"
               />
             </div>
 
@@ -308,7 +339,7 @@ export default function AddProductPage() {
               <span className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-bold mr-3">2</span>
               Product Images
             </h2>
-            
+
             <div className="space-y-6">
               <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 hover:border-purple-300 transition-colors duration-200">
                 <div className="text-center">
@@ -337,13 +368,13 @@ export default function AddProductPage() {
                   {images.length} of 20 images uploaded
                 </span>
                 <div className="w-32 bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
+                  <div
+                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(images.length / 20) * 100}%` }}
                   ></div>
                 </div>
               </div>
-              
+
               {/* Image Previews */}
               {imagePreviews.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -379,7 +410,7 @@ export default function AddProductPage() {
               Sizes & Stock
               <span className="ml-2 text-sm font-normal text-gray-500">(Optional)</span>
             </h2>
-            
+
             <div className="space-y-4">
               {sizes.map((size, index) => (
                 <div key={index} className="flex gap-4 items-center p-4 bg-gray-50 rounded-xl">
@@ -410,7 +441,7 @@ export default function AddProductPage() {
                   </button>
                 </div>
               ))}
-              
+
               <button
                 type="button"
                 onClick={addSize}
@@ -430,7 +461,7 @@ export default function AddProductPage() {
               Color Variants
               <span className="ml-2 text-sm font-normal text-gray-500">(Optional)</span>
             </h2>
-            
+
             <div className="space-y-6">
               {variants.map((variant, index) => (
                 <div key={index} className="border border-gray-200 rounded-xl p-6 bg-gray-50">
@@ -445,7 +476,7 @@ export default function AddProductPage() {
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">Color Code</label>
                       <div className="flex gap-2">
@@ -457,14 +488,14 @@ export default function AddProductPage() {
                           className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         />
                         {variant.colorCode && (
-                          <div 
+                          <div
                             className="w-10 h-10 rounded-lg border border-gray-200"
                             style={{ backgroundColor: variant.colorCode }}
                           ></div>
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">Price Override</label>
                       <div className="relative">
@@ -480,10 +511,10 @@ export default function AddProductPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <label className="block text-sm font-medium text-gray-700">Assign Images</label>
-                    
+
                     {imagePreviews.length > 0 ? (
                       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
                         {imagePreviews.map((preview, imageIndex) => (
@@ -491,11 +522,10 @@ export default function AddProductPage() {
                             <button
                               type="button"
                               onClick={() => toggleImageForVariant(index, imageIndex)}
-                              className={`w-full h-16 rounded-lg border-2 transition-all duration-200 ${
-                                variant.imageIndices.includes(imageIndex)
+                              className={`w-full h-16 rounded-lg border-2 transition-all duration-200 ${variant.imageIndices.includes(imageIndex)
                                   ? 'border-orange-500 ring-2 ring-orange-200'
                                   : 'border-gray-200 hover:border-orange-300'
-                              }`}
+                                }`}
                             >
                               <img
                                 src={preview}
@@ -524,15 +554,15 @@ export default function AddProductPage() {
                         <p>Upload images first to assign them to variants</p>
                       </div>
                     )}
-                    
+
                     <div className="text-sm text-gray-600">
-                      Selected images: {variant.imageIndices.length > 0 
+                      Selected images: {variant.imageIndices.length > 0
                         ? variant.imageIndices.map(i => `#${i}`).join(', ')
                         : 'None selected'
                       }
                     </div>
                   </div>
-                  
+
                   <button
                     type="button"
                     onClick={() => removeVariant(index)}
@@ -542,7 +572,7 @@ export default function AddProductPage() {
                   </button>
                 </div>
               ))}
-              
+
               <button
                 type="button"
                 onClick={addVariant}

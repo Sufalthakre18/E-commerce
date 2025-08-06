@@ -8,19 +8,18 @@ export type CartItem = {
   quantity: number;
   image: string;
   sizeId: string | null;     
-  sizeLabel: string;
-  // Add variant support
-  variantId?: string | null;
-  color?: string;
+  sizeLabel: string;         
+  variantId: string ;
+  color: string; 
 };
 
 type CartStore = {
   items: CartItem[];
 
   addToCart: (item: CartItem) => void;
-  removeFromCart: (id: string, sizeId: string | null, variantId?: string | null) => void;
+  removeFromCart: (id: string, sizeId: string | null) => void;
   clearCart: () => void;
-  updateQuantity: (id: string, sizeId: string | null, quantity: number, variantId?: string | null) => void;
+  updateQuantity: (id: string, sizeId: string | null, quantity: number) => void;
 
   totalItems: () => number;
   totalPrice: () => number;
@@ -39,17 +38,13 @@ export const useCartStore = create<CartStore>()(
 
       addToCart: (item) => {
         const exists = get().items.find(
-          (i) => i.id === item.id && 
-                 i.sizeId === item.sizeId && 
-                 i.variantId === item.variantId
+          (i) => i.id === item.id && i.sizeId === item.sizeId
         );
 
         if (exists) {
           set({
             items: get().items.map((i) =>
-              i.id === item.id && 
-              i.sizeId === item.sizeId && 
-              i.variantId === item.variantId
+              i.id === item.id && i.sizeId === item.sizeId
                 ? { ...i, quantity: i.quantity + item.quantity }
                 : i
             ),
@@ -59,12 +54,10 @@ export const useCartStore = create<CartStore>()(
         }
       },
 
-      removeFromCart: (id, sizeId, variantId) => {
+      removeFromCart: (id, sizeId) => {
         set({
           items: get().items.filter(
-            (i) => !(i.id === id && 
-                    i.sizeId === sizeId && 
-                    i.variantId === variantId)
+            (i) => !(i.id === id && i.sizeId === sizeId)
           ),
         });
       },
@@ -73,15 +66,11 @@ export const useCartStore = create<CartStore>()(
         set({ items: [] });
       },
 
-      updateQuantity: (id, sizeId, quantity, variantId) => {
+      updateQuantity: (id, sizeId, quantity) => {
         if (quantity < 1) return;
         set({
           items: get().items.map((i) =>
-            i.id === id && 
-            i.sizeId === sizeId && 
-            i.variantId === variantId 
-              ? { ...i, quantity } 
-              : i
+            i.id === id && i.sizeId === sizeId ? { ...i, quantity } : i
           ),
         });
       },

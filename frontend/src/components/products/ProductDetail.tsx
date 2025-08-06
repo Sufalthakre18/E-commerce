@@ -8,17 +8,15 @@ export function ProductDetail({ product }: { product: any }) {
   const addToCart = useCartStore((state) => state.addToCart);
   const [selectedSize, setSelectedSize] = useState<{ id: string, size: string } | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+  const [confirmationMessage, setConfirmationMessage] = useState('');
 
-  // Initialize with first variant if available
   const defaultVariant = product.variants?.[0] || null;
   const currentVariant = selectedVariant || defaultVariant;
 
-  // Get current images - prioritize variant images over product images
-  const currentImages = currentVariant?.images?.length > 0 
+  const currentImages = currentVariant?.images?.length > 0
     ? currentVariant.images.map((img: any) => img.url)
     : product.images?.map((img: any) => img.url) || [];
 
-  // Get current price - use variant price if available, otherwise product price
   const currentPrice = currentVariant?.price || product.price;
 
   const mainImage = currentImages[0] || '';
@@ -27,8 +25,39 @@ export function ProductDetail({ product }: { product: any }) {
     setSelectedVariant(variant);
   };
 
+  const handleAddToCart = () => {
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      return;
+    }
+
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: currentPrice,
+      quantity: 1,
+      sizeId: selectedSize?.id ?? null,
+      sizeLabel: selectedSize?.size ?? '',
+      image: mainImage,
+      variantId: currentVariant?.id ?? null,
+      color: currentVariant?.color ?? '',
+    });
+
+    setConfirmationMessage('Item added to cart!');
+
+    setTimeout(() => {
+      setConfirmationMessage('');
+    }, 3000);
+  };
+
   return (
     <div className="p-4 pb-24">
+
+      {confirmationMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 text-sm font-light tracking-wide rounded-md z-50 shadow-lg">
+          {confirmationMessage}
+        </div>
+      )}
+
       <ImageGallery images={currentImages} />
 
       <h1 className="text-xl font-bold mt-4">{product.name}</h1>
@@ -84,12 +113,12 @@ export function ProductDetail({ product }: { product: any }) {
                   disabled={isOutOfStock}
                   onClick={() => setSelectedSize(size)}
                   className={`px-4 py-2 rounded-full border text-sm transition-all ${
-                    isSelected 
-                      ? 'bg-black text-white' 
+                    isSelected
+                      ? 'bg-black text-white'
                       : 'bg-gray-100 text-gray-700'
                   } ${
-                    isOutOfStock 
-                      ? 'opacity-50 cursor-not-allowed' 
+                    isOutOfStock
+                      ? 'opacity-50 cursor-not-allowed'
                       : 'hover:bg-black hover:text-white'
                   }`}
                 >
@@ -108,21 +137,13 @@ export function ProductDetail({ product }: { product: any }) {
       {product.stock > 0 && (
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-50">
           <button
-            onClick={() =>
-              addToCart({
-                id: product.id,
-                name: product.name,
-                price: currentPrice,
-                quantity: 1,
-                sizeId: selectedSize?.id ?? null,  
-                sizeLabel: selectedSize?.size ?? '',
-                image: mainImage,
-                // Add variant info to cart item
-                variantId: currentVariant?.id ?? null,
-                color: currentVariant?.color ?? '',
-              })
-            }
-            className="w-full bg-black cursor-pointer text-white rounded-lg py-3 text-center"
+            onClick={handleAddToCart}
+            disabled={product.sizes && product.sizes.length > 0 && !selectedSize}
+            className={`w-full bg-black cursor-pointer text-white rounded-lg py-3 text-center transition-all ${
+              product.sizes && product.sizes.length > 0 && !selectedSize
+                ? 'opacity-50 cursor-not-allowed'
+                : 'hover:bg-gray-800'
+            }`}
           >
             Add to Cart
           </button>

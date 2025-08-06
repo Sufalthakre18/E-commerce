@@ -42,6 +42,7 @@ model Product {
   id          String         @id @default(cuid())
   name        String
   description String?
+  details     String?
   price       Float
   stock       Int 
   categoryId  String?

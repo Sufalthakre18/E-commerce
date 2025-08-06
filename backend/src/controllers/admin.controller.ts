@@ -132,10 +132,15 @@ export const getOrderById = async (req: Request, res: Response) => {
               include: {
                 images: true,
                 category: true,
+
               },
             },
             size: true, 
-            variant: true, 
+            variant: {
+              include: {
+                images: true,
+              },
+            }, 
           },
         },
         payment: true,

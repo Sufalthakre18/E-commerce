@@ -5,7 +5,7 @@ import { deleteFromCloudinary, uploadOnCloudinary } from "../lib/cloudinary";
 export const productService = {
   // Used by admin to create a product
   async create(data: any) {
-    const { name, description, price, stock, category, categoryId, images, sizes, variants, type } = data;
+    const { name, description, price, stock, category, categoryId, images, sizes, variants, type,details } = data;
 
     let connectedCategory;
 
@@ -48,6 +48,7 @@ export const productService = {
       data: {
         name,
         description,
+        details: details || null,
         price: parseFloat(price),
         stock: parseInt(stock),
         type,
@@ -144,7 +145,7 @@ export const productService = {
         where,
         skip,
         take: limit,
-        include: { images: true, category: { include: { parent: true } } },
+        include: { images: true, category: { include: { parent: true } },variants: { include: { images: true } } },
         orderBy: { createdAt: "desc" },
       }),
       prisma.product.count({ where }),
@@ -220,6 +221,7 @@ async update(id: string, data: any) {
   const {
     name,
     description,
+    details,
     price,
     stock,
     category,
@@ -396,6 +398,7 @@ async update(id: string, data: any) {
     const dataToUpdate: any = {};
     if (name !== undefined) dataToUpdate.name = name;
     if (description !== undefined) dataToUpdate.description = description;
+    if (details !== undefined) dataToUpdate.details = details;
     if (price !== undefined) dataToUpdate.price = parseFloat(price);
     if (stock !== undefined) dataToUpdate.stock = parseInt(stock);
     if (type !== undefined) dataToUpdate.type = type;

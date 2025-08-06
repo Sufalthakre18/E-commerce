@@ -32,9 +32,11 @@ type FormDataType = {
   price: number;
   stock: number;
   description: string;
+  details: string;
   categoryId: string;
   sizes: Size[];
   variants: Variant[];
+  type: string;
 };
 
 type Category = {
@@ -53,9 +55,11 @@ export default function EditProductPage() {
     price: 0,
     stock: 0,
     description: '',
+    details: '',
     categoryId: '',
     sizes: [],
     variants: [],
+    type:''
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -101,8 +105,10 @@ useEffect(() => {
           price: data.price || 0,
           stock: data.stock || 0,
           description: data.description || '',
+          details: data.details || '',
           categoryId: data.categoryId || '',
           sizes: data.sizes || [],
+          type: data.type || '',
           variants: (data.variants || []).map((v: any) => ({
             id: v.id,
             color: v.color || '',
@@ -144,6 +150,9 @@ useEffect(() => {
     if (formData.price <= 0) newErrors.price = 'Price must be greater than 0';
     if (formData.stock < 0) newErrors.stock = 'Stock cannot be negative';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.details.trim()) newErrors.details = 'details is required';
+    if (!formData.type.trim()) newErrors.type = 'Type is required';
+
     if (!formData.categoryId) newErrors.categoryId = 'Please select a category';
 
     // Validate variants
@@ -351,7 +360,9 @@ useEffect(() => {
       form.append('price', formData.price.toString());
       form.append('stock', formData.stock.toString());
       form.append('description', formData.description);
+      form.append('details', formData.details);
       form.append('categoryId', formData.categoryId);
+      form.append('type', formData.type);
 
       // Sizes
       form.append('sizes', JSON.stringify(formData.sizes));
@@ -363,11 +374,10 @@ useEffect(() => {
         colorCode: variant.colorCode,
         price: variant.price,
         imagesToDelete: variant.imagesToDelete || [],
-        existingImages: variant.existingImages || [], // IMPORTANT: Include existing images
+        existingImages: variant.existingImages || [], 
       }));
       form.append('variants', JSON.stringify(variantsData));
 
-      // Variant images - FIXED: Handle multiple images per variant properly
       let variantImageCounter = 0;
       formData.variants.forEach((variant, variantIndex) => {
         if (variant.imageFiles && variant.imageFiles.length > 0) {
@@ -381,12 +391,9 @@ useEffect(() => {
 
       console.log(`Uploading ${variantImageCounter} variant images total`);
 
-      // Product images
       imagesToDelete.forEach(id => form.append('imagesToDelete', id));
       newImages.forEach(file => form.append('images', file));
 
-      // Debug: Log form data
-      console.log('Form data being sent:');
       for (let [key, value] of form.entries()) {
         if (key === 'variants') {
           console.log(key, JSON.parse(value as string));
@@ -533,6 +540,28 @@ useEffect(() => {
               onChange={handleChange}
               error={errors.description}
               rows={4}
+              required
+            />
+          </div>
+          <div className="mt-4">
+            <FormTextarea
+              label="Details"
+              name="details"
+              value={formData.details}
+              onChange={handleChange}
+              error={errors.details}
+              rows={4}
+              required
+            />
+          </div>
+          <div className="mt-4">
+            <FormTextarea
+              label="Type"
+              name="type"
+              value={formData.type}
+              onChange={handleChange}
+              error={errors.type}
+              rows={1}
               required
             />
           </div>

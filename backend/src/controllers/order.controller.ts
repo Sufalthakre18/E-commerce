@@ -11,7 +11,7 @@ interface AuthRequest extends Request {
 export const OrderController = {
   async createRazorpayOrder(req: AuthRequest, res: Response) {
     try {
-      const { addressId, items, total } = req.body;
+      const { addressId, items, total,variantId,sizeId } = req.body;
       const userId = req.user.id;
 
       // create the DB order with status "PENDING"
@@ -25,8 +25,8 @@ export const OrderController = {
             create: items.map((item: any) => ({
               productId: item.productId,
               quantity: item.quantity,
-              sizeId: item.sizeId ?? null,
-              variantId: item.variantId ?? null
+              sizeId: item.sizeId ,
+              variantId: item.variantId 
             })),
           },
         },
