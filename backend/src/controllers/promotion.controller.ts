@@ -6,6 +6,7 @@ import {
   getPromotionByCode,
 } from '../services/promotion.service';
 
+
 // ADMIN: Get all
 export const fetchPromotions = async (req: Request, res: Response) => {
   const promos = await getAllPromotions();

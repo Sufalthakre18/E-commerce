@@ -2,8 +2,10 @@ export interface Product {
   id: string;
   name: string;
   description: string;
+  details: string;
   price: number;
   stock: number;
+  type: string; 
   categoryId: string;
   createdAt: string;
   category: {

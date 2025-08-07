@@ -4,10 +4,10 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { Filter, ChevronDown, ArrowUpDown, ShoppingBag, Search, X } from 'lucide-react';
 import Link from 'next/link';
-import { Cinzel } from '@next/font/google';
+import { Cinzel } from 'next/font/google';
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'] });
 
-import { Unica_One } from '@next/font/google';
+import { Unica_One } from 'next/font/google';
 const unica = Unica_One({ subsets: ['latin'], weight: ['400'], variable: '--font-unica' });
 
 interface ProductImage {
@@ -482,7 +482,7 @@ const MensClothingCollection: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className={`grid lg:gap-4 gap-x-[1px] gap-y-1 lg:gap-x-0.5  grid-cols-2 md:grid-cols-3 lg:grid-cols-3`}>
+            <div className={`grid lg:gap-4 gap-x-[1px] gap-y-1 lg:gap-x-0.5  grid-cols-2 md:grid-cols-3 lg:grid-cols-4`}>
               {paginatedProducts.map((product) => (
                 <div
                   key={product.id}
@@ -494,7 +494,7 @@ const MensClothingCollection: React.FC = () => {
                 >
                   <Link href={`/products/${product.id}`}>
                     {/* Product Image Container */}
-                    <div className={`relative overflow-hidden bg-gray-50 aspect-[3.5/5] lg:aspect-[3/4] mb-1 md:mb-3 lg:mb-3`}>
+                    <div className={`relative overflow-hidden bg-gray-50 aspect-[3/4] lg:aspect-[3/4] mb-1 md:mb-3 lg:mb-3`}>
                       {getCurrentProductImage(product) ? (
                         <Image
                           src={getCurrentProductImage(product)}

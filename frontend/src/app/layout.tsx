@@ -2,6 +2,7 @@ import { Inter } from 'next/font/google';
 import Header from '@/components/layout/Header';
 import { ReactQueryProvider } from '@/lib/react-query-provider';
 import './globals.css';
+import { Toaster } from 'sonner';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -20,6 +21,7 @@ export default function RootLayout({
           <main className="min-h-screen">{children}</main>
           
         </ReactQueryProvider>
+        <Toaster position="bottom-right" richColors />
       </body>
     </html>
   );
