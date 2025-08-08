@@ -143,8 +143,8 @@ export const OrderService = {
                         productId: item.productId,
                         quantity: item.quantity,
 
-                        sizeId: item.sizeId ?? null,
-                        variantId: item.variantId ?? null
+                        sizeId: item.sizeId || null,
+                        variantId: item.variantId || null
                         
                     })),
                 },

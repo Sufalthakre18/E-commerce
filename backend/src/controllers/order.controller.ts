@@ -25,8 +25,8 @@ export const OrderController = {
             create: items.map((item: any) => ({
               productId: item.productId,
               quantity: item.quantity,
-              sizeId: item.sizeId ,
-              variantId: item.variantId 
+              sizeId: item.sizeId || null ,
+              variantId: item.variantId || null,  
             })),
           },
         },
@@ -63,21 +63,6 @@ export const OrderController = {
 
     const data = await OrderService.getUserOrders(userId, page, limit);
     return res.json(data);
-  },
-  async createBuyNowOrder(req: Request, res: Response) {
-    const { id: userId } = (req as AuthRequest).user;
-    const { productId, quantity, addressId } = req.body;
-
-    if (!productId || !quantity || !addressId) {
-      return res.status(400).json({ error: "missing required fields" });
-    }
-
-    try {
-      const data = await OrderService.createBuyNowOrder(userId, addressId, productId, quantity);
-      res.json(data);
-    } catch (err: any) {
-      res.status(400).json({ error: err.message });
-    }
   },
   async createCODOrder(req: Request, res: Response) {
     const { id: userId } = (req as AuthRequest).user;

@@ -269,7 +269,7 @@ const WomensLandingPage: React.FC = () => {
     },
     {
       id: 'shoes',
-      name: 'Shoes',
+      name: 'Footwear',
       subcategories: ['Heels', 'Flats', 'Sneakers', 'Boots', 'Sandals', 'Athletic'],
       image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=800&h=1000&fit=crop&auto=format&q=80',
       featured: true

@@ -58,16 +58,7 @@ interface ApiResponse {
 
 // Configuration constants
 const clothingTypes = [
-  'T-Shirts',
-  'Jeans',
-  'Sneakers',
-  'Casual Shirts',
-  'Hoodies & Sweatshirts',
-  'Track Pants / Joggers',
-  'Shorts',
-  'Formal Shirts',
-  'Jackets',
-  'Underwear & Socks',
+  'Heels', 'Flats', 'Sneakers', 'Boots', 'Sandals', 'Athletic'
 ];
 
 const sortOptions = [
@@ -78,7 +69,7 @@ const sortOptions = [
   { value: 'name', label: 'Name A-Z' },
 ];
 
-const MensClothingCollection: React.FC = () => {
+const WomenAccesoriesCollection: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,10 +95,10 @@ const MensClothingCollection: React.FC = () => {
           throw new Error('Failed to fetch products');
         }
         const data: ApiResponse = await response.json();
-        const mensClothingProducts = data.products.filter(
-          (product) => product.category.parent?.name === 'Man' && product.category.name === 'Man-Clothing',
+        const WomansAccessoriesProducts = data.products.filter(
+          (product) => product.category.parent?.name === 'Woman' && product.category.name === 'Woman-Accessories',
         );
-        setProducts(mensClothingProducts);
+        setProducts(WomansAccessoriesProducts);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -245,7 +236,7 @@ const MensClothingCollection: React.FC = () => {
         <div className="container mx-auto px-6 py-20">
           <div className="text-center">
             <h1 className="uppercase text-4xl md:text-6xl font-light text-gray-900 mb-6 tracking-tight">
-              MEN'S COLLECTION
+              WOMEN'S Accesories
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto font-light leading-relaxed">
               Timeless pieces crafted with precision. Discover our curated selection of essential menswear.
@@ -286,4 +277,4 @@ const MensClothingCollection: React.FC = () => {
   );
 };
 
-export default MensClothingCollection;
+export default WomenAccesoriesCollection;

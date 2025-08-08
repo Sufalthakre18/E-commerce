@@ -6,45 +6,35 @@ import { getAuthToken } from '@/lib/utils/auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'sonner';
-import RefundDetailsModal from '@/components/orders/RefundDetailsModal';
+import { Source_Sans_3, Cinzel } from 'next/font/google';
+import { Package, ChevronLeft, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+
+// Premium fonts
+const cinzel = Cinzel({ subsets: ['latin'], weight: '600' });
+const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
 
 interface Order {
   id: string;
   createdAt: string;
   total: number;
   status: string;
-  payment?: {
-    method: string;
-    transactionId?: string;
-  };
+  payment?: { method: string; transactionId?: string };
   items: {
     id: string;
     orderId: string;
     quantity: number;
-    size?: {
-      id: string;
-      size: string;
-    };
-    variant?: {
-      id: string;
-      color: string;
-      colorCode: string;
-      price: number;
-    };
-
-    product: {
-      name: string;
-      price: number;
-      images?: { url: string }[];
-    };
+    size?: { id: string; size: string };
+    variant?: { id: string; color: string; colorCode: string; price: number };
+    product: { name: string; price: number; images?: { url: string }[] };
   }[];
 }
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showRefundModal, setShowRefundModal] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 5;
   const router = useRouter();
 
   useEffect(() => {
@@ -67,189 +57,171 @@ export default function OrdersPage() {
     };
 
     fetchOrders();
-  }, []);
+  }, [router]);
 
-  const handleCancel = async (orderId: string) => {
-    const confirm = window.confirm('Are you sure you want to cancel this order?');
-    if (!confirm) return;
+  // Calculate pagination
+  const totalPages = Math.ceil(orders.length / itemsPerPage);
+  const startIndex = (page - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = orders.slice(startIndex, endIndex);
 
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/order/cancel/${orderId}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-        }
-      );
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error?.error || 'Something went wrong.');
-      }
-
-      const data = await res.json();
-      toast.success(data.refund?.status === 'PROCESSED'
-        ? 'Order cancelled and Razorpay refund processed.'
-        : 'Order cancelled.');
-
-      // Update UI
-      setOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId ? { ...order, status: 'CANCELLED' } : order
-        )
-      );
-    } catch (error: any) {
-      console.error('Cancel failed:', error);
-      toast.error(error.message || 'Failed to cancel order.');
-    }
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleReturnClick = (orderId: string) => {
-    const confirm = window.confirm('Do you want to return this order?');
-    if (!confirm) return;
-    setSelectedOrderId(orderId);
-    setShowRefundModal(true);
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className={`${sourceSansPro.className} text-gray-600 text-sm`}>Loading your orders...</p>
+      </div>
+    );
+  }
 
-  const handleReturnAfterRefundDetails = async () => {
-    if (!selectedOrderId) return;
-
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/order/return/${selectedOrderId}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-        }
-      );
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error('❌ Return failed:', errorData);
-        throw new Error(errorData?.error || 'Something went wrong while processing return.');
-      }
-
-      toast.success('✅Return request submitted successfully');
-      setShowRefundModal(false);
-      window.location.reload();
-    } catch (err: any) {
-      toast.error(`Return failed: ${err.message || 'Unknown error'}`);
-    }
-  };
-
-
-  if (loading) return <p className="text-center mt-10">Loading your orders...</p>;
-
-  if (!orders || orders.length === 0)
-    return <p className="text-center mt-10">You haven't placed any orders yet.</p>;
+  if (!orders || orders.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className={`${sourceSansPro.className} text-gray-600 text-sm`}>No orders placed yet.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-bold mb-4">Your Orders</h1>
-
-      {orders.map((order) => (
-        <div
-          key={order.id}
-          className="border rounded-xl p-4 shadow-sm bg-white space-y-2"
-        >
-          <div className="flex justify-between text-sm text-gray-500">
-            <p>{new Date(order.createdAt).toLocaleDateString()}</p>
-            <p>{order.payment?.method?.toUpperCase() || 'N/A'}</p>
-          </div>
-
-          <div className="text-lg font-semibold">
-            ₹{order.total} –{' '}
-            <span
-              className={`inline-block px-2 py-0.5 rounded text-xs ${order.status === 'PAID'
-                ? 'bg-green-100 text-green-700'
-                : order.status === 'PENDING'
-                  ? 'bg-yellow-100 text-yellow-800'
-                  : order.status === 'CANCELLED'
-                    ? 'bg-red-100 text-red-700'
-                    : order.status === 'RETURN_REQUESTED'
+    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        <h1 className={`${cinzel.className} text-3xl sm:text-4xl font-semibold text-gray-900 mb-8 text-center`}>
+          Your Orders
+        </h1>
+        <p className={`${sourceSansPro.className} text-sm text-gray-600 mb-6`}>
+          Showing {startIndex + 1}-{Math.min(endIndex, orders.length)} of {orders.length} orders
+        </p>
+        <div className="space-y-6">
+          {paginatedOrders.map((order) => (
+            <div
+              key={order.id}
+              className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-gray-700" />
+                  <p className={`${sourceSansPro.className} text-sm text-gray-600`}>
+                    {new Date(order.createdAt).toLocaleDateString('en-IN', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </p>
+                </div>
+                <p className={`${sourceSansPro.className} text-sm text-gray-600`}>
+                  {order.payment?.method?.toUpperCase() || 'N/A'}
+                </p>
+              </div>
+              <div className="flex justify-between items-center mb-4">
+                <p className={`${sourceSansPro.className} text-lg font-semibold text-gray-900`}>
+                  ₹{order.total.toFixed(2)}
+                </p>
+                <span
+                  className={`${sourceSansPro.className} inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                    order.status === 'PAID'
+                      ? 'bg-green-100 text-green-700'
+                      : order.status === 'PENDING'
+                      ? 'bg-yellow-100 text-yellow-700'
+                      : order.status === 'CANCELLED'
+                      ? 'bg-red-100 text-red-700'
+                      : order.status === 'RETURN_REQUESTED'
                       ? 'bg-purple-100 text-purple-700'
                       : order.status === 'DELIVERED'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-700'
-                }`}
-            >
-              {order.status}
-            </span>
-          </div>
-
-          <div className="space-y-1">
-            {order.items?.map((item) => {
-              const product = item.product;
-              const imageUrl =
-                product?.images?.[0]?.url ||
-                'https://res.cloudinary.com/diwncnwls/image/upload/v1743091600/cld-sample-5.jpg';
-
-              return (
-                <div key={item.id} className="flex items-center gap-3">
-                  <Image
-                    src={imageUrl}
-                    alt={product?.name || 'Product'}
-                    width={50}
-                    height={50}
-                    className="rounded"
-                  />
-                  <div>
-                    <p className="text-sm font-medium">{product?.name}</p>
-                    {item.variant && (
-  <p className="text-xs text-gray-500 flex items-center gap-2">
-    Color: {item.variant.color}
-    <span
-      className="w-3 h-3 rounded-full border"
-      style={{ backgroundColor: item.variant.colorCode }}
-    />
-  </p>
-)}
-
-
-                    <p className="text-xs text-gray-600">
-                      Qty: {item.quantity} – ₹{item.variant?.price || product?.price}
-
-                    </p>
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {order.status}
+                </span>
+              </div>
+              <div className="space-y-4">
+                {order.items?.map((item) => (
+                  <div key={item.id} className="flex items-center gap-4">
+                    <Image
+                      src={item.product?.images?.[0]?.url || 'https://res.cloudinary.com/diwncnwls/image/upload/v1743091600/cld-sample-5.jpg'}
+                      alt={item.product?.name || 'Product'}
+                      width={60}
+                      height={60}
+                      className="rounded-lg object-cover"
+                      loading="lazy"
+                    />
+                    <div className="flex-1">
+                      <p className={`${sourceSansPro.className} text-sm font-medium text-gray-900`}>
+                        {item.product?.name}
+                      </p>
+                      {item.variant && (
+                        <p className={`${sourceSansPro.className} text-xs text-gray-500 flex items-center gap-2`}>
+                          Color: {item.variant.color}
+                          <span
+                            className="w-3 h-3 rounded-full border"
+                            style={{ backgroundColor: item.variant.colorCode }}
+                          />
+                        </p>
+                      )}
+                      <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
+                        Qty: {item.quantity} – ₹{(item.variant?.price || item.product?.price).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {['PENDING', 'PROCESSING', 'PAID'].includes(order.status) && (
-            <button
-              onClick={() => handleCancel(order.id)}
-              className="text-sm text-red-600 underline mt-2 cursor-pointer hover:text-red-800"
-            >
-              Cancel Order
-            </button>
-          )}
-
-          {order.status === 'DELIVERED' && (
-            <button
-              onClick={() => handleReturnClick(order.id)}
-              className="text-sm text-blue-600 underline mt-2 cursor-pointer hover:text-blue-800"
-            >
-              Return Order
-            </button>
-          )}
+                ))}
+              </div>
+              <Link
+                href={`/orders/${order.id}`}
+                className={`${sourceSansPro.className} text-sm text-gray-900 font-medium mt-4 inline-block transition-colors hover:text-gray-700`}
+              >
+                View Details
+              </Link>
+            </div>
+          ))}
         </div>
-      ))}
 
-      {showRefundModal && selectedOrderId && (
-        <RefundDetailsModal
-          orderId={selectedOrderId}
-          onClose={() => {
-            setShowRefundModal(false);
-            setSelectedOrderId(null);
-          }}
-          onSuccess={handleReturnAfterRefundDetails}
-        />
-      )}
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex items-center justify-between">
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 1}
+              className={`${sourceSansPro.className} flex items-center gap-1 text-sm text-gray-600 px-4 py-2 rounded-lg transition-colors ${
+                page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'
+              }`}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </button>
+            <div className="flex gap-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => handlePageChange(pageNum)}
+                  className={`${sourceSansPro.className} text-sm px-3 py-1 rounded-lg transition-colors ${
+                    page === pageNum
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page === totalPages}
+              className={`${sourceSansPro.className} flex items-center gap-1 text-sm text-gray-600 px-4 py-2 rounded-lg transition-colors ${
+                page === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-100'
+              }`}
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
