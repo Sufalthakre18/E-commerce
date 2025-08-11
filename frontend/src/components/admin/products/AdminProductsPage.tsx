@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAuthToken } from '@/lib/utils/auth';
 import { Package, Plus,  Search, Filter, TrendingUp, AlertCircle } from 'lucide-react';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 type Product = {
   id: string;
@@ -32,38 +33,27 @@ export default function AdminProductsPage() {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products`, {
-      headers: {
-        Authorization: `Bearer ${getAuthToken()}`,
-      },
+  setLoading(true);
+  fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products`)
+    .then(data => {
+      setProducts(data || []);
+      setLoading(false);
     })
-      .then(res => res.json())
-      .then(data => {
-        setProducts(data || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+    .catch(() => setLoading(false));
+}, []);
+
 
   async function handleDelete(id: string) {
   if (!confirm('Are you sure you want to delete this product? This will permanently delete the product, its variants, images, and all related data.')) return;
   
   setDeleteLoading(id);
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${getAuthToken()}`,
-        'Content-Type': 'application/json',
-      },
-    });
+   const response = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
+  method: 'DELETE',
+});
+
 
   
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to delete product' }));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-    }
 
     setProducts(prev => prev.filter(p => p.id !== id));
     

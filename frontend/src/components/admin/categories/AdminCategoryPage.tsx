@@ -1,5 +1,6 @@
 'use client'
 
+import { fetchWrapper } from "@/lib/api/fetchWrapper";
 import { getAuthToken } from "@/lib/utils/auth";
 import React, { useEffect, useState } from "react";
 
@@ -20,18 +21,14 @@ const AdminCategoryPage = () => {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const fetchCategories = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`, {
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`
-        }
-      });
-      const data = await res.json();
-      setCategories(data);
-    } catch (err) {
-      console.error("❌ Failed to fetch categories:", err);
-    }
-  };
+  try {
+    const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`);
+    setCategories(data);
+  } catch (err) {
+    console.error("❌ Failed to fetch categories:", err);
+  }
+};
+
 
   useEffect(() => {
     fetchCategories();
@@ -41,23 +38,15 @@ const AdminCategoryPage = () => {
     if (!newCategory.trim()) return;
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`, {
+      const res = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAuthToken()}`
-        },
         body: JSON.stringify({
           name: newCategory,
           ...(parentCategoryId ? { parentId: parentCategoryId } : {})
         }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("❌ Failed to create category:", errorData);
-        throw new Error("Failed to create");
-      }
+      
 
 
       setNewCategory("");
@@ -72,19 +61,14 @@ const AdminCategoryPage = () => {
     if (!editingCategory) return;
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/category/${editingCategory.id}`, {
+      const res = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/category/${editingCategory.id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAuthToken()}`
-        },
         body: JSON.stringify({
           name: editingCategory.name,
           parentId: editingCategory.parentId ?? null
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to update");
 
       setEditingCategory(null);
       fetchCategories();
@@ -97,14 +81,11 @@ const AdminCategoryPage = () => {
     if (!confirm("Are you sure you want to delete this category?")) return;
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/category/${id}`, {
+      const res = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/category/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`
-        }
+        
       });
 
-      if (!res.ok) throw new Error("Failed to delete");
 
       fetchCategories();
     } catch (err) {

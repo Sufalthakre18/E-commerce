@@ -1,30 +1,22 @@
 'use client';
 
 import { useCartStore } from '@/store/cart';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Trash2, Plus, Minus, ShoppingBag, Loader2 } from 'lucide-react';
 import { getAuthToken } from '@/lib/utils/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-
-// Import and configure fonts using Next.js Font Optimization
 import { Cinzel, Source_Sans_3 } from 'next/font/google';
+import { toast } from 'sonner';
 
-const cinzel = Cinzel({
-  subsets: ['latin'],
-  weight: ['600'],
-  variable: '--font-cinzel', // Use CSS variables for Tailwind
-});
-
-const sourceSansPro = Source_Sans_3({
-  subsets: ['latin'],
-  weight: ['400', '600'],
-  variable: '--font-source-sans-3', // Use CSS variables for Tailwind
-});
+const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'] });
+const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
 
 export function CartView() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [loadingItems, setLoadingItems] = useState<string[]>([]);
   
   const {
@@ -38,13 +30,19 @@ export function CartView() {
   } = useCartStore();
 
   const handleProceed = () => {
+    if (status === 'unauthenticated') {
+      toast.error('Please log in to proceed to checkout');
+      router.push('/login?redirect=/checkout');
+      return;
+    }
     const token = getAuthToken();
     if (!token) {
+      toast.error('Session expired. Please log in again.');
       router.push('/login?redirect=/checkout');
-    } else {
-      getCartSnapshot();
-      router.push('/checkout');
+      return;
     }
+    getCartSnapshot();
+    router.push('/checkout');
   };
 
   const handleQuantityChange = async (
@@ -92,11 +90,9 @@ export function CartView() {
 
   return (
     <div className={`container mx-auto mt-5 lg:mt-1 p-4 md:p-8 lg:p-12 ${sourceSansPro.className}`}>
-      <h1 className={`text-4xl md:text-5xl font-bold text-gray-900  md:mb-12 border-b-2 pt-2 ${cinzel.className}`}>Shopping Cart</h1>
+      <h1 className={`text-4xl md:text-5xl font-bold text-gray-900 md:mb-12 border-b-2 pt-2 ${cinzel.className}`}>Shopping Cart</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        
-        {/* Cart Items List */}
         <div className="lg:col-span-2 space-y-2">
           {items.map((item) => {
             const itemKey = `${item.id}-${item.sizeId ?? 'nosize'}`;
@@ -118,7 +114,7 @@ export function CartView() {
                   />
                 </div>
 
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 ">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2">
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-1">
                       {item.name}
@@ -168,9 +164,9 @@ export function CartView() {
                       title="Remove item"
                     >
                       {isLoading ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
+                        <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
-                          <Trash2 className="h-5 w-5" />
+                        <Trash2 className="h-5 w-5" />
                       )}
                       <span className="ml-1 text-sm md:hidden">Remove</span>
                     </button>
@@ -196,7 +192,6 @@ export function CartView() {
           </div>
         </div>
 
-        {/* Cart Summary */}
         <div className="lg:col-span-1 h-fit sticky top-4">
           <div className="bg-gray-50 rounded-lg p-8 border border-gray-200">
             <h2 className={`text-2xl font-bold mb-6 text-gray-900 ${cinzel.className}`}>Order Summary</h2>
@@ -221,6 +216,7 @@ export function CartView() {
             <button
               onClick={handleProceed}
               className="w-full bg-black text-white rounded-full py-4 text-lg font-semibold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={status === 'loading'}
             >
               Proceed to Checkout
             </button>

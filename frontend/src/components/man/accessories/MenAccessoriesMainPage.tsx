@@ -1,10 +1,10 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import FilterBar from '@/components/ui/productsui/FilterBar';
 import ProductsGrid from '@/components/ui/productsui/ProductsGrid';
 import Pagination from '@/components/ui/productsui/Pagination';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 // Types (same as before)
 interface ProductImage {
@@ -99,11 +99,7 @@ const MensAccesoriesCollection: React.FC = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch products');
-        }
-        const data: ApiResponse = await response.json();
+        const data: ApiResponse = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products`);
         const mensAccessoriesProducts = data.products.filter(
           (product) => product.category.parent?.name === 'Man' && product.category.name === 'Man-Accessories',
         );

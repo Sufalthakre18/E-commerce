@@ -7,7 +7,6 @@ import Link from 'next/link';
 export default function HeroSection4() {
     return (
         <div className="w-full">
-            {/* Story Section - Zara Style */}
             <section className="py-16 md:py-24 lg:py-32 bg-white">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-0 items-stretch min-h-[80vh]">
@@ -51,7 +50,6 @@ export default function HeroSection4() {
                 </div>
             </section>
 
-            {/* Newsletter - Zara Style Minimal */}
             <section className="py-20 md:py-24 lg:py-32 bg-stone-50">
                 <div className="max-w-2xl mx-auto px-6 sm:px-8 text-center">
                     {/* Minimal Heading */}

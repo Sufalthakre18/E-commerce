@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper'; // Import fetchWrapper
 
 type Review = {
   id: string;
@@ -22,14 +22,9 @@ export default function ProductReviewsPage() {
   useEffect(() => {
     if (!productId) return;
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/reviews/product/${productId}`, {
-      headers: {
-        Authorization: `Bearer ${getAuthToken()}`,
-      },
-    })
-      .then((res) => res.json())
-      .then((data) => setReviews(data))
-      .catch((err) => console.error('Error loading reviews:', err))
+    fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/reviews/product/${productId}`)
+      .then((data:any) => setReviews(data))
+      .catch((err:any) => console.error('Error loading reviews:', err))
       .finally(() => setLoading(false));
   }, [productId]);
 

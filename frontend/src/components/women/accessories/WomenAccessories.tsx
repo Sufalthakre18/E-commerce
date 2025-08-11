@@ -1,10 +1,10 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import FilterBar from '@/components/ui/productsui/FilterBar';
 import ProductsGrid from '@/components/ui/productsui/ProductsGrid';
 import Pagination from '@/components/ui/productsui/Pagination';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 // Types (same as before)
 interface ProductImage {
@@ -69,7 +69,7 @@ const sortOptions = [
   { value: 'name', label: 'Name A-Z' },
 ];
 
-const WomenAccesoriesCollection: React.FC = () => {
+const WomensAccessoriesCollection: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,15 +90,11 @@ const WomenAccesoriesCollection: React.FC = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch products');
-        }
-        const data: ApiResponse = await response.json();
-        const WomansAccessoriesProducts = data.products.filter(
+        const data: ApiResponse = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products`);
+        const womensAccessoriesProducts = data.products.filter(
           (product) => product.category.parent?.name === 'Woman' && product.category.name === 'Woman-Accessories',
         );
-        setProducts(WomansAccessoriesProducts);
+        setProducts(womensAccessoriesProducts);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -236,10 +232,10 @@ const WomenAccesoriesCollection: React.FC = () => {
         <div className="container mx-auto px-6 py-20">
           <div className="text-center">
             <h1 className="uppercase text-4xl md:text-6xl font-light text-gray-900 mb-6 tracking-tight">
-              WOMEN'S Accesories
+              WOMEN'S Accessories
             </h1>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto font-light leading-relaxed">
-              Timeless pieces crafted with precision. Discover our curated selection of essential menswear.
+              Timeless pieces crafted with precision. Discover our curated selection of essential womenswear.
             </p>
           </div>
         </div>
@@ -277,4 +273,4 @@ const WomenAccesoriesCollection: React.FC = () => {
   );
 };
 
-export default WomenAccesoriesCollection;
+export default WomensAccessoriesCollection;

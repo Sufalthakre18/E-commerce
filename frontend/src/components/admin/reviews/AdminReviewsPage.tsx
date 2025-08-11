@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Trash } from 'lucide-react';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 interface Review {
   id: string;
@@ -25,17 +25,9 @@ export default function AdminReviewsPage() {
 
   const fetchReviews = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/reviews`, {
-        headers:{
-            Authorization: `Bearer ${getAuthToken()}` // 
-        }
-      });
-
-      if (!res.ok) throw new Error("Failed to fetch");
-
-      const data = await res.json();
+      const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/reviews`);
       setReviews(data);
-    } catch (err) {
+    } catch (err: any) {
       setError("Failed to load reviews");
     } finally {
       setLoading(false);
@@ -47,15 +39,9 @@ export default function AdminReviewsPage() {
     if (!confirmDelete) return;
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/reviews/${id}`, {
+      await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/reviews/${id}`, {
         method: 'DELETE',
-        headers: {
-            Authorization: `Bearer ${getAuthToken()}`, // Include auth token
-        },
       });
-
-      if (!res.ok) throw new Error("Failed to delete");
-
       setReviews((prev) => prev.filter((r) => r.id !== id));
     } catch {
       alert("Failed to delete review");

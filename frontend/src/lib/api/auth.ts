@@ -1,3 +1,9 @@
+type RegisterPayload = {
+  name: string;
+  email: string;
+  password: string;
+};
+
 export async function login(data: { email: string; password: string }) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
     method: 'POST',
@@ -5,39 +11,22 @@ export async function login(data: { email: string; password: string }) {
     body: JSON.stringify(data),
   });
 
-  // Only call res.json() ONCE
   const result = await res.json();
-
-  if (!res.ok) {
-    throw new Error(result?.message || 'Login failed');
+  if (!res.ok || result.success === false) {
+    throw new Error(result.message || 'Login failed');
   }
 
   return result;
 }
 
-// ===========================================================
-// lib/api/auth.ts
-
-type RegisterPayload = {
-  name: string;
-  email: string;
-  password: string;
-};
-
-// lib/api/auth.ts
-
-export async function register(payload: { name: string; email: string; password: string }) {
+export async function register(payload: RegisterPayload) {
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 
-  // Get raw response text first
   const text = await res.text();
-
   let data;
   try {
     data = JSON.parse(text);
@@ -47,10 +36,8 @@ export async function register(payload: { name: string; email: string; password:
   }
 
   if (!res.ok || data.success === false) {
-    const message = data?.message || 'Registration failed';
-    throw new Error(message);
+    throw new Error(data.message || 'Registration failed');
   }
 
   return data;
 }
-

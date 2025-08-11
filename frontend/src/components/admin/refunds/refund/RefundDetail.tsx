@@ -1,19 +1,16 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 export default function RefundDetailPage() {
   const { orderId } = useParams();
   const [refund, setRefund] = useState<any>(null);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/refund-details/${orderId}`,{
-        headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-        }
-    })
-      .then((res) => res.json())
+    if (!orderId) return;
+
+    fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/refund-details/${orderId}`)
       .then((data) => setRefund(data.refund))
       .catch((err) => console.error(err));
   }, [orderId]);

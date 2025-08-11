@@ -9,58 +9,60 @@ datasource db {
 
 model Role {
   id    String @id @default(cuid())
-  name  String @unique 
+  name  String @unique
   users User[]
 }
 
 model User {
   id        String    @id @default(cuid())
   email     String    @unique
-  password  String
+  password  String?
   name      String?
-  gender    String? 
+  gender    String?
   roleId    String
   role      Role      @relation(fields: [roleId], references: [id])
   orders    Order[]
   addresses Address[]
-  cart      Cart?
   reviews   Review[]
+  accounts  Account[]
+  sessions  Session[]
+  otps      OTP[]     @relation("UserOTPs")
+  emailVerified Boolean   @default(false)
   createdAt DateTime  @default(now())
 }
 
 model Category {
-  id            String      @id @default(cuid())
-  name          String      @unique
-  parentId      String?     
-  parent        Category?   @relation("Subcategories", fields: [parentId], references: [id])
-  subcategories Category[]  @relation("Subcategories")
+  id            String     @id @default(cuid())
+  name          String     @unique
+  parentId      String?
+  parent        Category?  @relation("Subcategories", fields: [parentId], references: [id])
+  subcategories Category[] @relation("Subcategories")
   products      Product[]
 }
 
-
 model Product {
-  id          String         @id @default(cuid())
+  id          String           @id @default(cuid())
   name        String
   description String?
   details     String?
   price       Float
-  stock       Int 
+  stock       Int
   categoryId  String?
-  category    Category?      @relation(fields: [categoryId], references: [id])
+  category    Category?        @relation(fields: [categoryId], references: [id])
   type        String?
   images      ProductImage[]
-  createdAt   DateTime       @default(now())
+  createdAt   DateTime         @default(now())
   orderItems  OrderItem[]
-  cartItems   CartItem[]
   reviews     Review[]
-  sizes       ProductSize[] 
+  sizes       ProductSize[]
   variants    ProductVariant[]
 
-  @@index([type])  // this is use for speed to search product with query of type
+  @@index([type]) // this is use for speed to search product with query of type
 }
+
 model ProductSize {
   id         String      @id @default(cuid())
-  size       String 
+  size       String
   stock      Int
   productId  String
   product    Product     @relation(fields: [productId], references: [id])
@@ -72,21 +74,21 @@ model ProductSize {
 model ProductImage {
   id        String  @id @default(cuid())
   url       String
-  publicId  String? 
+  publicId  String?
   productId String
   product   Product @relation(fields: [productId], references: [id])
 }
 
 model ProductVariant {
-  id         String      @id @default(cuid())
-  color      String      
-  colorCode  String?     
-  price      Float?      
+  id         String                @id @default(cuid())
+  color      String
+  colorCode  String?
+  price      Float?
   productId  String
-  product    Product     @relation(fields: [productId], references: [id])
+  product    Product               @relation(fields: [productId], references: [id])
   images     ProductVariantImage[]
-  orderItems OrderItem[]  
-  
+  orderItems OrderItem[]
+
   @@unique([color, productId])
 }
 
@@ -98,21 +100,8 @@ model ProductVariantImage {
   variant   ProductVariant @relation(fields: [variantId], references: [id])
 }
 
-model Cart {
-  id     String     @id @default(cuid())
-  userId String?    @unique
-  user   User?      @relation(fields: [userId], references: [id])
-  items  CartItem[]
-}
 
-model CartItem {
-  id        String  @id @default(cuid())
-  cartId    String
-  productId String
-  quantity  Int
-  cart      Cart    @relation(fields: [cartId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
-}
+
 
 model Address {
   id     String @id @default(cuid())
@@ -130,7 +119,7 @@ model Address {
   postalCode String
   isDefault  Boolean @default(false)
 
-  orders Order[] 
+  orders Order[]
 }
 
 enum OrderStatus {
@@ -160,16 +149,16 @@ model Order {
 }
 
 model OrderItem {
-  id        String       @id @default(cuid())
+  id        String          @id @default(cuid())
   orderId   String
   productId String
   variantId String?
   quantity  Int
   sizeId    String?
-  size      ProductSize? @relation("SizeOnOrderItems", fields: [sizeId], references: [id])
+  size      ProductSize?    @relation("SizeOnOrderItems", fields: [sizeId], references: [id])
   variant   ProductVariant? @relation(fields: [variantId], references: [id])
-  order     Order        @relation(fields: [orderId], references: [id])
-  product   Product      @relation(fields: [productId], references: [id])
+  order     Order           @relation(fields: [orderId], references: [id])
+  product   Product         @relation(fields: [productId], references: [id])
 }
 
 model Payment {
@@ -193,7 +182,7 @@ model AdminActivity {
 
 model Refund {
   id            String   @id @default(cuid())
-  orderId       String   @unique 
+  orderId       String   @unique
   order         Order    @relation(fields: [orderId], references: [id])
   amount        Float
   deduction     Float
@@ -214,7 +203,7 @@ model RefundDetail {
   ifscCode      String?
   bankName      String?
   createdAt     DateTime  @default(now())
-  deletedAt     DateTime? 
+  deletedAt     DateTime?
 }
 
 model Review {
@@ -235,10 +224,50 @@ model Promotion {
   id          String   @id @default(uuid())
   code        String   @unique
   description String?
-  discount    Float 
+  discount    Float
   type        String // 'percentage' | 'fixed'
   isActive    Boolean  @default(true)
   startsAt    DateTime
   endsAt      DateTime
   createdAt   DateTime @default(now())
+}
+
+// Added for NextAuth.js
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+// Added for email OTP
+model OTP {
+  id         String   @id @default(cuid())
+  identifier String
+  code       String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  userId     String?
+  user       User?     @relation("UserOTPs", fields: [userId], references: [id])
+  name       String?
+  password   String?
 }

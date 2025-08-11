@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import Image from 'next/image';
 
 type Size = {
@@ -16,8 +16,8 @@ type Variant = {
   color: string;
   colorCode: string;
   price: number;
-  imageFiles?: File[]; // Changed to array
-  existingImages?: Array<{ id: string; url: string; }>;
+  imageFiles?: File[];
+  existingImages?: Array<{ id: string; url: string }>;
   imagesToDelete?: string[];
 };
 
@@ -42,7 +42,7 @@ type FormDataType = {
 type Category = {
   id: string;
   name: string;
-  parentId?: string |null;
+  parentId?: string | null;
   subcategories?: Category[];
 };
 
@@ -59,7 +59,7 @@ export default function EditProductPage() {
     categoryId: '',
     sizes: [],
     variants: [],
-    type:''
+    type: '',
   });
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -71,35 +71,25 @@ export default function EditProductPage() {
   const [success, setSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  
-useEffect(() => {
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/admin/category`,
-        { headers: { Authorization: `Bearer ${getAuthToken()}` } }
-      );
-      if (!res.ok) throw new Error("Failed to load categories");
-      const data = await res.json();   
-      setCategories(data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-  fetchCategories();
-}, []);
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`);
+        setCategories(data);
+      } catch (err: any) {
+        console.error('Failed to load categories:', err);
+        setErrors({ general: 'Failed to load categories' });
+      }
+    };
+    fetchCategories();
+  }, []);
 
   // Fetch product data
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setFetchLoading(true);
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`);
-
-        if (!res.ok) throw new Error('Failed to fetch product');
-
-        const data = await res.json();
-
+        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`);
         setFormData({
           name: data.name || '',
           price: data.price || 0,
@@ -114,14 +104,13 @@ useEffect(() => {
             color: v.color || '',
             colorCode: v.colorCode || '#000000',
             price: v.price || 0,
-            imageFiles: [], // Initialize as empty array
+            imageFiles: [],
             existingImages: v.images || [],
             imagesToDelete: [],
           })),
         });
-
         setExistingImages(data.images || []);
-      } catch (error) {
+      } catch (error: any) {
         setErrors({ general: 'Failed to load product data' });
       } finally {
         setFetchLoading(false);
@@ -150,9 +139,8 @@ useEffect(() => {
     if (formData.price <= 0) newErrors.price = 'Price must be greater than 0';
     if (formData.stock < 0) newErrors.stock = 'Stock cannot be negative';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.details.trim()) newErrors.details = 'details is required';
+    if (!formData.details.trim()) newErrors.details = 'Details is required';
     if (!formData.type.trim()) newErrors.type = 'Type is required';
-
     if (!formData.categoryId) newErrors.categoryId = 'Please select a category';
 
     // Validate variants
@@ -177,7 +165,7 @@ useEffect(() => {
     if (!files) return;
 
     const validFiles = Array.from(files).filter(file => {
-      const isValid = file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024; // 5MB limit
+      const isValid = file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024;
       if (!isValid) {
         setErrors(prev => ({ ...prev, images: 'Please select valid image files under 5MB' }));
       }
@@ -200,7 +188,7 @@ useEffect(() => {
   const addSize = () => {
     setFormData(prev => ({
       ...prev,
-      sizes: [...prev.sizes, { size: '', stock: 0 }]
+      sizes: [...prev.sizes, { size: '', stock: 0 }],
     }));
   };
 
@@ -209,14 +197,14 @@ useEffect(() => {
       ...prev,
       sizes: prev.sizes.map((size, i) =>
         i === index ? { ...size, [field]: value } : size
-      )
+      ),
     }));
   };
 
   const removeSize = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      sizes: prev.sizes.filter((_, i) => i !== index)
+      sizes: prev.sizes.filter((_, i) => i !== index),
     }));
   };
 
@@ -224,14 +212,17 @@ useEffect(() => {
   const addVariant = () => {
     setFormData(prev => ({
       ...prev,
-      variants: [...prev.variants, {
-        color: '',
-        colorCode: '#000000',
-        price: formData.price,
-        imageFiles: [], // Properly initialize as empty array
-        existingImages: [],
-        imagesToDelete: [],
-      }]
+      variants: [
+        ...prev.variants,
+        {
+          color: '',
+          colorCode: '#000000',
+          price: formData.price,
+          imageFiles: [],
+          existingImages: [],
+          imagesToDelete: [],
+        },
+      ],
     }));
   };
 
@@ -240,14 +231,14 @@ useEffect(() => {
       ...prev,
       variants: prev.variants.map((variant, i) =>
         i === index ? { ...variant, [field]: value } : variant
-      )
+      ),
     }));
   };
 
   const removeVariant = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      variants: prev.variants.filter((_, i) => i !== index)
+      variants: prev.variants.filter((_, i) => i !== index),
     }));
   };
 
@@ -263,34 +254,27 @@ useEffect(() => {
           };
         }
         return variant;
-      })
+      }),
     }));
   };
 
-  // New function to handle multiple variant image uploads
   const handleVariantImageChange = (variantIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    console.log(`Selecting ${files.length} files for variant ${variantIndex}`);
-
     const validFiles = Array.from(files).filter(file => {
       const isValid = file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024;
       if (!isValid) {
-        console.log(`Invalid file: ${file.name}`);
-        setErrors(prev => ({ 
-          ...prev, 
-          [`variant_${variantIndex}_images`]: 'Please select valid image files under 5MB' 
+        setErrors(prev => ({
+          ...prev,
+          [`variant_${variantIndex}_images`]: 'Please select valid image files under 5MB',
         }));
       }
       return isValid;
     });
 
-    console.log(`${validFiles.length} valid files after filtering`);
-
     if (validFiles.length === 0) return;
 
-    // Clear any previous error for this variant's images
     setErrors(prev => {
       const newErrors = { ...prev };
       delete newErrors[`variant_${variantIndex}_images`];
@@ -298,18 +282,12 @@ useEffect(() => {
     });
 
     setFormData(prev => {
-      console.log('Current formData variants:', prev.variants.length);
-      console.log(`Current variant ${variantIndex} imageFiles:`, prev.variants[variantIndex]?.imageFiles?.length || 0);
-      
       const newVariants = prev.variants.map((variant, i) => {
         if (i === variantIndex) {
           const currentFiles = variant.imageFiles || [];
-          const newFiles = [...currentFiles, ...validFiles];
-          console.log(`Adding ${validFiles.length} files to existing ${currentFiles.length} files = ${newFiles.length} total`);
-          
           return {
             ...variant,
-            imageFiles: newFiles
+            imageFiles: [...currentFiles, ...validFiles],
           };
         }
         return variant;
@@ -317,15 +295,13 @@ useEffect(() => {
 
       return {
         ...prev,
-        variants: newVariants
+        variants: newVariants,
       };
     });
 
-    // Clear the input
     e.target.value = '';
   };
 
-  // Function to remove a new variant image
   const removeVariantNewImage = (variantIndex: number, imageIndex: number) => {
     setFormData(prev => ({
       ...prev,
@@ -333,11 +309,11 @@ useEffect(() => {
         if (i === variantIndex) {
           return {
             ...variant,
-            imageFiles: variant.imageFiles?.filter((_, idx) => idx !== imageIndex) || []
+            imageFiles: variant.imageFiles?.filter((_, idx) => idx !== imageIndex) || [],
           };
         }
         return variant;
-      })
+      }),
     }));
   };
 
@@ -367,60 +343,38 @@ useEffect(() => {
       // Sizes
       form.append('sizes', JSON.stringify(formData.sizes));
 
-      // Variants - FIXED: Include existing images to preserve them
+      // Variants
       const variantsData = formData.variants.map(variant => ({
         id: variant.id,
         color: variant.color,
         colorCode: variant.colorCode,
         price: variant.price,
         imagesToDelete: variant.imagesToDelete || [],
-        existingImages: variant.existingImages || [], 
+        existingImages: variant.existingImages || [],
       }));
       form.append('variants', JSON.stringify(variantsData));
 
-      let variantImageCounter = 0;
+      // Variant images
       formData.variants.forEach((variant, variantIndex) => {
         if (variant.imageFiles && variant.imageFiles.length > 0) {
           variant.imageFiles.forEach((file) => {
             form.append('variantImages', file);
             form.append('variantImageIndexes', variantIndex.toString());
-            variantImageCounter++;
           });
         }
       });
 
-      console.log(`Uploading ${variantImageCounter} variant images total`);
-
+      // Product images
       imagesToDelete.forEach(id => form.append('imagesToDelete', id));
       newImages.forEach(file => form.append('images', file));
 
-      for (let [key, value] of form.entries()) {
-        if (key === 'variants') {
-          console.log(key, JSON.parse(value as string));
-        } else if (key === 'variantImages') {
-          console.log(key, (value as File).name);
-        } else {
-          console.log(key, value);
-        }
-      }
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
+      const responseData = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
         body: form,
       });
 
-      const responseData = await res.json();
-
-      if (!res.ok) {
-        throw new Error(responseData.message || 'Failed to update product');
-      }
-
       setSuccess(true);
       setTimeout(() => router.push('/admin/products'), 1500);
-
     } catch (err: any) {
       setErrors({ general: err.message || 'Something went wrong' });
     } finally {
@@ -453,7 +407,7 @@ useEffect(() => {
   ): React.ReactElement[] => {
     return cats.flatMap(cat => [
       <option key={cat.id} value={cat.id}>
-        {`${"—".repeat(level)} ${cat.name}`}
+        {`${'—'.repeat(level)} ${cat.name}`}
       </option>,
       ...(cat.subcategories
         ? renderCategoryOptions(cat.subcategories, level + 1)
@@ -528,7 +482,7 @@ useEffect(() => {
                 <option value="">Select Category</option>
                 {renderCategoryOptions(categories)}
               </select>
-               {errors.categoryId && <p>{errors.categoryId}</p>}
+              {errors.categoryId && <p className="text-sm text-red-600 mt-1">{errors.categoryId}</p>}
             </div>
           </div>
 
@@ -703,7 +657,7 @@ useEffect(() => {
                   </div>
                 </div>
 
-                {/* Variant Images - Updated to handle multiple images */}
+                {/* Variant Images */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Variant Images</label>
 
@@ -776,18 +730,17 @@ useEffect(() => {
                     <p className="text-sm text-red-600 mt-1">{errors[`variant_${index}_images`]}</p>
                   )}
                   <p className="text-xs text-gray-500 mt-1">You can select multiple images. Maximum 5MB per image.</p>
-                  
-                  {/* Debug info - remove this in production */}
+
+                  {/* Debug info */}
                   <div className="text-xs text-gray-400 mt-2 p-2 bg-gray-100 rounded">
-                    <strong>Debug:</strong> 
-                    Existing: {variant.existingImages?.length || 0} | 
-                    New: {variant.imageFiles?.length || 0} | 
+                    <strong>Debug:</strong>
+                    Existing: {variant.existingImages?.length || 0} |
+                    New: {variant.imageFiles?.length || 0} |
                     Total: {(variant.existingImages?.length || 0) + (variant.imageFiles?.length || 0)}
                   </div>
                 </div>
               </div>
             ))}
-
             {formData.variants.length === 0 && (
               <p className="text-gray-500 text-sm">No variants added. Click "Add Variant" to add color variants.</p>
             )}

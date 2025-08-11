@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -15,7 +16,7 @@ import {
   CheckCircle,
   Clock
 } from 'lucide-react';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import { OrderStepTracker } from './OrderStepTracker';
 
 const OrderDetailPage = () => {
@@ -30,14 +31,7 @@ const OrderDetailPage = () => {
 
     const fetchOrder = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/orders/${id}`, {
-          headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-          cache: 'no-store',
-        });
-
-        const data = await res.json();
+        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/orders/${id}`);
         setOrder(data);
       } catch (err) {
         console.error('Error fetching order:', err);
@@ -248,7 +242,6 @@ const OrderDetailPage = () => {
                             </>
                           )}
                         </div>
-
                       </div>
                       <div className="text-right">
                         <p className="font-semibold text-slate-800">₹{item.product.price * item.quantity}</p>

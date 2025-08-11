@@ -26,7 +26,6 @@ interface CategoryItem {
     };
 }
 
-// Individual category card component
 const CategoryCard = memo(function CategoryCard({
     item,
     isActive,

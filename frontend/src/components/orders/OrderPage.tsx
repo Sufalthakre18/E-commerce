@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getUserOrders } from '@/lib/api/orders';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import { getAuthToken } from '@/lib/utils/auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -46,7 +46,7 @@ export default function OrdersPage() {
 
     const fetchOrders = async () => {
       try {
-        const data = await getUserOrders();
+        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/user`);
         setOrders(Array.isArray(data.orders) ? data.orders : []);
       } catch (err) {
         console.error(err);
@@ -129,6 +129,7 @@ export default function OrdersPage() {
                       : order.status === 'PENDING'
                       ? 'bg-yellow-100 text-yellow-700'
                       : order.status === 'CANCELLED'
+
                       ? 'bg-red-100 text-red-700'
                       : order.status === 'RETURN_REQUESTED'
                       ? 'bg-purple-100 text-purple-700'

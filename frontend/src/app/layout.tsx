@@ -1,27 +1,26 @@
-import { Inter } from 'next/font/google';
-import { ReactQueryProvider } from '@/lib/react-query-provider';
-import './globals.css';
-import { Toaster } from 'sonner';
-import HeaderWrapper from '@/components/layout/HeaderWrapper';
+'use client';
 
-const inter = Inter({
-  subsets: ['latin'],
-});
+import { SessionProvider } from 'next-auth/react';
+import { ReactQueryProvider } from '@/lib/react-query-provider';
+import { Toaster } from 'sonner';
+import Header from '@/components/layout/Header';
+import './globals.css';
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-     <html lang="en">
-      <body className={inter.className}>
+    <html lang="en">
+      <body className="font-raleway">
         <ReactQueryProvider>
-          <HeaderWrapper/>
-          <main className="min-h-screen">{children}</main>
-          
+          <SessionProvider>
+            <Header />
+            <main>{children}</main>
+            <Toaster />
+          </SessionProvider>
         </ReactQueryProvider>
-        <Toaster position="bottom-right" richColors />
       </body>
     </html>
   );

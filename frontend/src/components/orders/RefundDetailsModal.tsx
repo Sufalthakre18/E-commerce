@@ -1,8 +1,8 @@
 'use client';
 
-import { getAuthToken } from '@/lib/utils/auth';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 interface RefundDetailsModalProps {
   orderId: string;
@@ -26,11 +26,10 @@ export default function RefundDetailsModal({
     setLoading(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/order/refund-details`, {
+      await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/refund-details`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
         },
         body: JSON.stringify({
           orderId,
@@ -41,22 +40,16 @@ export default function RefundDetailsModal({
           bankName,
         }),
       });
-
-      if (res.status === 409) {
-        toast.warning('⚠️ Refund details already saved for this order.');
-      } else if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error?.error || 'Failed to save refund details');
-      } else {
-        toast.success('✅ Refund details saved successfully');
-      }
-
-      // Notify parent that refund details are saved
+      toast.success('✅ Refund details saved successfully');
       onSuccess();
       onClose();
     } catch (err: any) {
       console.error('Refund detail save error:', err);
-      toast.error(`❌ ${err.message || 'Something went wrong'}`);
+      if (err.message.includes('409')) {
+        toast.warning('⚠️ Refund details already saved for this order.');
+      } else {
+        toast.error(`❌ ${err.message || 'Something went wrong'}`);
+      }
     } finally {
       setLoading(false);
     }

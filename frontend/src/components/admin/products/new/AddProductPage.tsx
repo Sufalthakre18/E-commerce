@@ -1,6 +1,7 @@
 'use client'
 
 import { getAuthToken } from '@/lib/utils/auth'
+import { fetchWrapper } from '@/lib/api/fetchWrapper' // Import fetchWrapper
 import { useState, useEffect } from 'react'
 
 interface Category {
@@ -49,12 +50,11 @@ export default function AddProductPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`, {
+      const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`, {
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,
         },
       })
-      const data = await res.json()
       setCategories(data)
     } catch (error) {
       console.error('Failed to fetch categories:', error)
@@ -73,12 +73,10 @@ export default function AddProductPage() {
     if (e.target.files) {
       const newFilesArray = Array.from(e.target.files)
 
-
       setImages(prevImages => [...prevImages, ...newFilesArray])
 
       const newPreviews = newFilesArray.map(file => URL.createObjectURL(file))
       setImagePreviews(prevPreviews => [...prevPreviews, ...newPreviews])
-
 
       e.target.value = ''
     }
@@ -113,7 +111,6 @@ export default function AddProductPage() {
   }
 
   const removeImage = (index: number) => {
-
     setImages(prevImages => prevImages.filter((_, i) => i !== index))
 
     if (imagePreviews[index]) {
@@ -136,10 +133,8 @@ export default function AddProductPage() {
     const currentIndices = updated[variantIndex].imageIndices
 
     if (currentIndices.includes(imageIndex)) {
-
       updated[variantIndex].imageIndices = currentIndices.filter(i => i !== imageIndex)
     } else {
-
       updated[variantIndex].imageIndices = [...currentIndices, imageIndex]
     }
 
@@ -171,23 +166,19 @@ export default function AddProductPage() {
         formDataToSend.append('variants', JSON.stringify(validVariants))
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/products`, {
+      const response = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getAuthToken()}` },
         body: formDataToSend
-      });
+      })
 
-      if (response.ok) {
-        alert('Product added successfully!')
+      alert('Product added successfully!')
 
-        setFormData({ name: '', description: '', price: '', stock: '', categoryId: '', type: '', details: '' })
-        setImages([])
-        setImagePreviews([])
-        setSizes([{ size: '', stock: 0 }])
-        setVariants([])
-      } else {
-        alert('Failed to add product')
-      }
+      setFormData({ name: '', description: '', price: '', stock: '', categoryId: '', type: '', details: '' })
+      setImages([])
+      setImagePreviews([])
+      setSizes([{ size: '', stock: 0 }])
+      setVariants([])
     } catch (error) {
       console.error('Error:', error)
       alert('Error adding product')
@@ -224,7 +215,6 @@ export default function AddProductPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-
           <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
               <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold mr-3">1</span>
@@ -272,13 +262,10 @@ export default function AddProductPage() {
                     onChange={handleInputChange}
                     className="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     placeholder="Enter product type"
-
                     required
                   />
                 </div>
               </div>
-             
-
             </div>
 
             <div className="mt-6 space-y-2">

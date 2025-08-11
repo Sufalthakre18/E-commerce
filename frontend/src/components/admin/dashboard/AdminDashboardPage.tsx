@@ -14,20 +14,19 @@ import {
   Activity,
   DollarSign
 } from 'lucide-react';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 export default function AdminDashboardPage() {
   const { data, isLoading, error } = useQuery({
-    queryKey: ['dashboard-overview'],
-    queryFn: async () => {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/dashboard/overview`, {
-        headers:{
-            Authorization: `Bearer ${getAuthToken()}`
-        }
-      });
-      if (!res.ok) throw new Error('Failed to fetch dashboard data');
-      return res.json();
-    },
-  });
+  queryKey: ['dashboard-overview'],
+  // fetchWrapper already returns parsed JSON (or throws on non-OK),
+  // so just return that parsed object:
+  queryFn: async () => {
+    return await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/dashboard/overview`);
+  },
+  // Optional: staleTime, refetchOnWindowFocus etc
+});
+
 
   if (isLoading) return (
     <div className="flex items-center justify-center min-h-96">

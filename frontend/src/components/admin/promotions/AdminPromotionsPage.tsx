@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import { Trash } from 'lucide-react';
 
 interface Promotion {
@@ -36,12 +36,7 @@ export default function AdminPromotionsPage() {
   const fetchPromos = async () => {
     setLoading(true);
     try {
-      const res = await fetch(API_URL, {
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`
-        }
-      });
-      const data = await res.json();
+      const data = await fetchWrapper(API_URL);
       setPromos(data);
     } catch {
       setError('Failed to fetch promotions');
@@ -56,19 +51,13 @@ export default function AdminPromotionsPage() {
 
   const handleCreate = async () => {
     try {
-      const res = await fetch(API_URL, {
+      await fetchWrapper(API_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`
-        },
         body: JSON.stringify({
           ...form,
           discount: parseFloat(form.discount),
         }),
       });
-
-      if (!res.ok) throw new Error('Creation failed');
       await fetchPromos();
       setForm({
         code: '',
@@ -86,11 +75,8 @@ export default function AdminPromotionsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this promo?')) return;
     try {
-      await fetch(`${API_URL}/${id}`, {
+      await fetchWrapper(`${API_URL}/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`
-        }
       });
       setPromos((prev) => prev.filter((p) => p.id !== id));
     } catch {

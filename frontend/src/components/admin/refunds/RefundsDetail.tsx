@@ -1,6 +1,6 @@
 'use client';
 
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -28,16 +28,9 @@ export default function RefundsPage() {
   useEffect(() => {
     const fetchRefunds = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/refund-details`, {
-          headers: {
-            Authorization: `Bearer ${getAuthToken()}`,
-          },
-        });
-
-        if (!res.ok) throw new Error('Failed to fetch refunds');
-        const json = await res.json();
+        const json = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/refund-details`);
         setRefunds(json.data);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to fetch refunds:', err);
       }
     };
@@ -49,16 +42,11 @@ export default function RefundsPage() {
     if (!confirm('Are you sure you want to delete this refund detail?')) return;
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/refund-details/${orderId}`, {
+      await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/refund-details/${orderId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
       });
-
-      if (!res.ok) throw new Error('Failed to delete');
       setRefunds((prev) => prev.filter((r) => r.orderId !== orderId));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to delete refund detail:', err);
       alert('Failed to delete refund detail.');
     }
@@ -68,22 +56,18 @@ export default function RefundsPage() {
     if (!confirm('Mark this refund as processed?')) return;
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/refund-details/${orderId}`, {
+      await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/refund-details/${orderId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
         },
       });
-
-      if (!res.ok) throw new Error('Failed to mark as processed');
-
       setRefunds((prev) =>
         prev.map((refund) =>
           refund.orderId === orderId ? { ...refund, processed: true } : refund
         )
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to mark as processed:', err);
       alert('Failed to update refund status.');
     }

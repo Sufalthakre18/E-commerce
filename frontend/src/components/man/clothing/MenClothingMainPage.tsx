@@ -1,10 +1,10 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import FilterBar from '@/components/ui/productsui/FilterBar';
 import ProductsGrid from '@/components/ui/productsui/ProductsGrid';
 import Pagination from '@/components/ui/productsui/Pagination';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 // Types (same as before)
 interface ProductImage {
@@ -99,17 +99,18 @@ const MensClothingCollection: React.FC = () => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch products');
-        }
-        const data: ApiResponse = await response.json();
+        setError(null);
+        const data: ApiResponse = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`,
+          },
+        });
         const mensClothingProducts = data.products.filter(
           (product) => product.category.parent?.name === 'Man' && product.category.name === 'Man-Clothing',
         );
         setProducts(mensClothingProducts);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        setError(err instanceof Error ? err.message : 'An error occurred while fetching products');
       } finally {
         setLoading(false);
       }

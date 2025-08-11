@@ -1,13 +1,15 @@
 'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Star, Heart, Share2, Truck, Shield, RotateCcw, ChevronLeft, ChevronRight, Plus, Minus, ShoppingBag, Zap, ChevronDown } from 'lucide-react';
-import { Cinzel, Unica_One, Raleway,Source_Sans_3 } from 'next/font/google';
+import { Star,  Share2, Truck, Shield, RotateCcw, ChevronLeft, ChevronRight, Plus, Minus, ShoppingBag, Zap, ChevronDown } from 'lucide-react';
+import { Cinzel, Unica_One, Raleway, Source_Sans_3 } from 'next/font/google';
 import { useCartStore } from '@/store/cart';
 import { toast } from 'sonner';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'], variable: '--font-cinzel' });
 const unica = Unica_One({ subsets: ['latin'], weight: ['400'], variable: '--font-unica' });
-const raleway = Raleway({ subsets: ['latin'], weight: ['400',],variable: '--font-raleway' });
+const raleway = Raleway({ subsets: ['latin'], weight: ['400'], variable: '--font-raleway' });
 const sourceSans = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'], variable: '--font-source-sans' });
 
 interface ProductImage {
@@ -41,6 +43,7 @@ interface Review {
     email: string;
   };
 }
+
 interface Product {
   id: string;
   name: string;
@@ -55,14 +58,12 @@ interface Product {
 }
 
 interface ProductDetailProps {
-  product: Product; 
+  product: Product;
 }
 
 const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
- 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewStats, setReviewStats] = useState({ averageRating: 0, total: 0 });
-
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     product.variants && product.variants.length > 0 ? product.variants[0] : null
   );
@@ -84,16 +85,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
 
   const fetchReviews = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/product/${product.id}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch reviews: ${response.statusText}`);
-      }
-
-      const reviewData = await response.json();
+      const reviewData = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/reviews/product/${product.id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`,
+        },
+      });
       setReviews(reviewData.reviews || []);
       setReviewStats({
         averageRating: reviewData.averageRating || 0,
-        total: reviewData.total || 0
+        total: reviewData.total || 0,
       });
     } catch (err) {
       console.error('Error fetching reviews:', err);
@@ -101,9 +101,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       setReviewStats({ averageRating: 0, total: 0 });
     }
   };
+
   useEffect(() => {
     fetchReviews();
-  }, [product.id]); 
+  }, [product.id]);
+
   const nextImage = () => {
     const images = selectedVariant?.images || product.images;
     const nextIndex = (currentImageIndex + 1) % images.length;
@@ -117,6 +119,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
     setCurrentImageIndex(prevIndex);
     scrollToThumbnail(prevIndex);
   };
+
   const scrollToThumbnail = (index: number) => {
     if (thumbnailsRef.current) {
       const thumbnailElement = thumbnailsRef.current.children[index] as HTMLElement;
@@ -137,7 +140,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
   const handleTouchEnd = (e: React.TouchEvent) => {
     const touchEnd = e.changedTouches[0].clientX;
     const swipeDistance = touchEnd - touchStart;
-    const swipeThreshold = 50; 
+    const swipeThreshold = 50;
 
     if (swipeDistance > swipeThreshold) {
       prevImage();
@@ -145,9 +148,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       nextImage();
     }
   };
+
   const currentImages = selectedVariant?.images || product.images || [];
 
-  // Handle variant change
   const handleVariantChange = (variant: ProductVariant) => {
     setSelectedVariant(variant);
     setCurrentImageIndex(0); // Reset image index when variant changes
@@ -155,7 +158,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
 
   const handleQuantityChange = (change: number) => {
     const newQuantity = quantity + change;
-    if (newQuantity >= 1 && newQuantity <= 10) { 
+    if (newQuantity >= 1 && newQuantity <= 10) {
       setQuantity(newQuantity);
     }
   };
@@ -163,7 +166,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'INR' // your desired currency
+      currency: 'INR',
     }).format(price);
   };
 
@@ -172,9 +175,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       toast.error('Please select a size before adding to cart.');
       return;
     }
- const itemPrice = selectedVariant?.price || product.price;
+    const itemPrice = selectedVariant?.price || product.price;
 
-    const selectedSizeObject = product.sizes?.find(s => s.size === selectedSize);
+    const selectedSizeObject = product.sizes?.find((s) => s.size === selectedSize);
 
     const cartItem = {
       id: product.id,
@@ -182,8 +185,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       price: itemPrice,
       quantity: quantity,
       image: currentImages[0]?.url || product.images[0]?.url || '',
-      sizeId: selectedSizeObject?.id || null, 
-      sizeLabel: selectedSize, 
+      sizeId: selectedSizeObject?.id || null,
+      sizeLabel: selectedSize,
       variantId: selectedVariant?.id || '',
       color: selectedVariant?.color || 'N/A',
     };
@@ -192,7 +195,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
     toast.success(`${quantity} of ${product.name} (${selectedSize || 'N/A'}) added to cart!`);
   };
 
-  
   if (!product) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -215,53 +217,43 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
 
   return (
     <div className={`min-h-screen bg-white ${unica.variable} font-unica`}>
-      {/* Navigation Breadcrumb */}
-
-      <div className="max-w-7xl mx-auto px-4  py-4 lg:py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 ">
-          {/* Image Gallery - Responsive Layout */}
-          <div className="flex flex-col pt-8 lg:pt-0 lg:px-6 lg:flex-row ">
-            
-            {/* Main Image */}
+      <div className="max-w-7xl mx-auto px-4 py-4 lg:py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2">
+          <div className="flex flex-col pt-8 lg:pt-0 lg:px-6 lg:flex-row">
             <div className="lg:flex-1 order-1 lg:order-2">
               <div
-                className="relative aspect-[3.5/5] bg-gray-50  overflow-hidden group"
+                className="relative aspect-[3.5/5] bg-gray-50 overflow-hidden group"
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
               >
                 <img
                   src={currentImages[currentImageIndex]?.url}
                   alt={product.name}
-                  className={`w-full h-full object-cover transition-transform duration-700 ${isImageZoomed ? 'scale-110' : 'hover:scale-105'
-                    }`}
+                  className={`w-full h-full object-cover transition-transform duration-700 ${isImageZoomed ? 'scale-110' : 'hover:scale-105'}`}
                   onClick={() => setIsImageZoomed(!isImageZoomed)}
                 />
-
-                {/* Image Navigation */}
                 {currentImages.length > 1 && (
                   <>
                     <button
                       onClick={(e) => {
-                        e.preventDefault(); 
+                        e.preventDefault();
                         prevImage();
                       }}
-                      className="absolute left-4 top-1/2 -translate-y-1/2  w-8 h-8  rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-slate-100 shadow-lg"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-slate-100 shadow-lg"
                     >
                       <ChevronLeft className="w-6 h-6 text-gray-800" />
                     </button>
                     <button
                       onClick={(e) => {
-                        e.preventDefault(); 
+                        e.preventDefault();
                         nextImage();
                       }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8   rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-slate-100 shadow-lg"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-slate-100 shadow-lg"
                     >
                       <ChevronRight className="w-6 h-6 text-gray-800" />
                     </button>
                   </>
                 )}
-
-                {/* Image Indicators */}
                 {currentImages.length > 1 && (
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
                     {currentImages.map((_, index) => (
@@ -271,8 +263,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                           setCurrentImageIndex(index);
                           scrollToThumbnail(index);
                         }}
-                        className={`w-1 h-1 rounded-full transition-colors ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'
-                          }`}
+                        className={`w-1 h-1 rounded-full transition-colors ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'}`}
                       />
                     ))}
                   </div>
@@ -280,48 +271,42 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
               </div>
             </div>
           </div>
-
-          {/* Product Information */}
           <div className="space-y-8">
-            {/* Header */}
-            <div className="lg:pt-6 ">
-              
-              <nav className=" lg:py-5 text-sm text-gray-700 border-b border-gray-200 capitalize ">
-                <div className={`${sourceSans.className} max-w-7xl mx-auto`}
-                style={{
-                  fontSize: '.7625rem', 
-                  fontFamily: '"Source Sans Pro", Helvetica, Arial, sans-serif', 
-                  fontWeight: 400,
-                }}>
+            <div className="lg:pt-6">
+              <nav className="lg:py-5 text-sm text-gray-700 border-b border-gray-200 capitalize">
+                <div
+                  className={`${sourceSans.className} max-w-7xl mx-auto`}
+                  style={{
+                    fontSize: '.7625rem',
+                    fontFamily: '"Source Sans Pro", Helvetica, Arial, sans-serif',
+                    fontWeight: 400,
+                  }}
+                >
                   Home / Clothing / Jeans / {product.name}
                 </div>
               </nav>
-             
               <h1 className={`lg:px-8 py-1 text-3xl font-light text-gray-900 tracking-tight ${cinzel.className}`}>
                 {product.name || 'Product Name'}
               </h1>
-
-              <p className={`${sourceSans.className} lg:px-8 text-gray-700 leading-relaxed capitalize`}
-               style={{
-                  fontSize: '.7625rem', 
-                  fontFamily: '"Source Sans Pro", Helvetica, Arial, sans-serif', 
+              <p
+                className={`${sourceSans.className} lg:px-8 text-gray-700 leading-relaxed capitalize`}
+                style={{
+                  fontSize: '.7625rem',
+                  fontFamily: '"Source Sans Pro", Helvetica, Arial, sans-serif',
                   fontWeight: 400,
-                }}>
+                }}
+              >
                 {product.description || 'No description available'}
               </p>
-
-              {/* Price */}
               <div className="lg:px-8 flex items-baseline space-x-3">
                 <span className={`${unica.className} text-lg font- text-gray-900`}>
                   {formatPrice(selectedVariant?.price || product.price)}
                 </span>
               </div>
             </div>
-
-            {/* Color Selection */}
             {product.variants && product.variants.length > 0 && (
               <div className="space-y-4 lg:px-8">
-                <h3 className={`text-sm font-medium text-gray-900 uppercase tracking-wide`}>
+                <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">
                   Color: {selectedVariant?.color || 'Select Color'}
                 </h3>
                 <div className="flex space-x-4">
@@ -329,28 +314,23 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                     <button
                       key={variant.id}
                       onClick={() => handleVariantChange(variant)}
-                      className={`relative w-7 h-6 rounded-xl border-2 transition-all ${selectedVariant?.id === variant.id
-                        ? 'border-gray-400 scale-110'
-                        : 'border-gray-300 hover:border-gray-400'
-                        }`}
+                      className={`relative w-7 h-6 rounded-xl border-2 transition-all ${
+                        selectedVariant?.id === variant.id ? 'border-gray-400 scale-110' : 'border-gray-300 hover:border-gray-400'
+                      }`}
                       style={{ backgroundColor: variant.colorCode }}
                     >
                       {selectedVariant?.id === variant.id && (
-                        <div className="absolute -inset-1 rounded-xl border-2 " />
+                        <div className="absolute -inset-1 rounded-xl border-2" />
                       )}
                     </button>
                   ))}
                 </div>
               </div>
             )}
-
-            {/* Size Selection */}
             {product.sizes && product.sizes.length > 0 && (
               <div className="space-y-4 lg:px-8">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">
-                    Size
-                  </h3>
+                  <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Size</h3>
                 </div>
                 <div className="grid grid-cols-5 gap-3">
                   {product.sizes.map((size) => (
@@ -358,12 +338,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                       key={size.id}
                       onClick={() => setSelectedSize(size.size)}
                       disabled={size.stock === 0}
-                      className={`h-12 border rounded-lg text-sm font-medium transition-all ${selectedSize === size.size
-                        ? 'border-gray-900 bg-gray-900 text-white'
-                        : size.stock === 0
+                      className={`h-12 border rounded-lg text-sm font-medium transition-all ${
+                        selectedSize === size.size
+                          ? 'border-gray-900 bg-gray-900 text-white'
+                          : size.stock === 0
                           ? 'border-gray-200 text-gray-400 cursor-not-allowed'
                           : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                        }`}
+                      }`}
                     >
                       {size.size}
                     </button>
@@ -371,12 +352,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               </div>
             )}
-
-            {/* Quantity */}
             <div className="space-y-4 lg:px-8">
-              <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">
-                Quantity
-              </h3>
+              <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Quantity</h3>
               <div className="flex items-center space-x-3">
                 <div className="flex items-center border border-gray-300 rounded-lg">
                   <button
@@ -395,17 +372,18 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
-                <span className={`${sourceSans.className} text-sm text-gray-600`}style={{
-                  fontSize: '.7625rem', 
-                  fontFamily: '"Source Sans Pro", Helvetica, Arial, sans-serif', 
-                  fontWeight: 400,
-                }}>
+                <span
+                  className={`${sourceSans.className} text-sm text-gray-600`}
+                  style={{
+                    fontSize: '.7625rem',
+                    fontFamily: '"Source Sans Pro", Helvetica, Arial, sans-serif',
+                    fontWeight: 400,
+                  }}
+                >
                   {product.stock || 0} in stock
                 </span>
               </div>
             </div>
-
-            {/* Add to Cart */}
             <div className="space-y-4 lg:px-8">
               <button
                 onClick={handleAddToCart}
@@ -415,8 +393,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 <span>Add to Cart</span>
               </button>
             </div>
-
-            {/* Features */}
             <div className="grid grid-cols-3 gap-4 py-6 border-t border-gray-200">
               <div className="text-center">
                 <Truck className="w-8 h-8 text-gray-700 mx-auto mb-2" />
@@ -431,8 +407,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 <span className="text-xs text-gray-600 font-medium">2 Year Warranty</span>
               </div>
             </div>
-
-            {/* Collapsible Product Details */}
             <div className="border-t border-gray-200">
               <button
                 onClick={() => setDetailsOpen(!detailsOpen)}
@@ -449,9 +423,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               )}
             </div>
-
-
-            {/* Collapsible Reviews */}
             <div className="border-t border-gray-200">
               <button
                 onClick={() => setReviewsOpen(!reviewsOpen)}
@@ -460,16 +431,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 <span>REVIEWS ({reviews.length})</span>
                 <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${reviewsOpen ? 'rotate-180' : ''}`} />
               </button>
-              {/* Rating Display */}
-               <div className="lg:px-8 flex items-center space-x-3">
+              <div className="lg:px-8 flex items-center space-x-3">
                 <div className="flex items-center space-x-1">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
-                      className={`w-4 h-4 ${i < Math.floor(reviewStats.averageRating)
-                        ? 'text-yellow-400 fill-current'
-                        : 'text-gray-300'
-                        }`}
+                      className={`w-4 h-4 ${i < Math.floor(reviewStats.averageRating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
                     />
                   ))}
                 </div>
@@ -496,10 +463,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                                 {[...Array(5)].map((_, i) => (
                                   <Star
                                     key={i}
-                                    className={`w-4 h-4 ${i < review.rating
-                                      ? 'text-yellow-400 fill-current'
-                                      : 'text-gray-300'
-                                      }`}
+                                    className={`w-4 h-4 ${i < review.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
                                   />
                                 ))}
                               </div>
@@ -518,8 +482,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               )}
             </div>
-
-            {/* Collapsible Shipping & Returns */}
             <div className="border-t border-gray-200">
               <button
                 onClick={() => setShippingOpen(!shippingOpen)}

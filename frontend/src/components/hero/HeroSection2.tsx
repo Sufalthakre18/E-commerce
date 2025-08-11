@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import Link from 'next/link';
 
-// Product interface for carousel
 interface Product {
     id: number;
     brand: string;
@@ -21,7 +20,6 @@ interface Product {
     shopWomenLink: string;
 }
 
-// Carousel Component (extracted from HeroSection3)
 const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
     const [currentSlide, setCurrentSlide] = useState(0);
     const [isPlaying, setIsPlaying] = useState(true);
@@ -65,12 +63,10 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
     const totalSlides = products.length;
     const slideInterval = 5000;
 
-    // Refs for better performance
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
     const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const startTimeRef = useRef<number>(Date.now());
 
-    // Clear all intervals
     const clearIntervals = useCallback(() => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -134,7 +130,6 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
                 const newProgress = Math.min((elapsed / slideInterval) * 100, 100);
                 setProgress(newProgress);
 
-                // Only advance slide when progress reaches exactly 100%
                 if (newProgress >= 100) {
                     nextSlide();
                 }
@@ -144,18 +139,15 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
         }
     }, [isPlaying, currentSlide, nextSlide, slideInterval, clearIntervals]);
 
-    // Reset progress when slide changes
     useEffect(() => {
         setProgress(0);
         startTimeRef.current = Date.now();
     }, [currentSlide]);
 
-    // Cleanup on unmount
     useEffect(() => {
         return clearIntervals;
     }, [clearIntervals]);
 
-    // Memoized progress indicators
     const ProgressIndicators = useMemo(() => (
         <div className="absolute bottom-7 left-1/2 -translate-x-1/2 z-20 w-4/5 max-w-xs">
             <div className="flex h-1 gap-0">
@@ -166,10 +158,6 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
                         className="flex-1 h-full relative cursor-pointer transition-all duration-300 hover:h-1.5 group"
                         aria-label={`Go to slide ${index + 1}`}
                     >
-                        {/* Background bar */}
-                        
-
-                        {/* Progress fill */}
                         <div
                             className={`absolute inset-0 bg-gradient-to-r from-amber-400 to-yellow-500 transition-all duration-300 ${index === currentSlide ? 'rounded-full' : ''
                                 }`}
@@ -238,9 +226,9 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
                         }}
                     >
                         <div className="flex w-full flex-col-reverse md:flex-row md:max-h-[90vh] min-h-[600px] md:min-h-[700px] flex-shrink-0">
-                            {/* Left - Product Info */}
+                            
                             <div className="relative md:my-auto aspect-square overflow-hidden md:w-1/2 bg-gradient-to-br from-amber-50 to-yellow-50">
-                                {/* Decorative Pattern */}
+                                
                                 <div className="absolute inset-0 opacity-30">
                                     <div
                                         className="absolute inset-0"
@@ -270,7 +258,7 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
                                     <div className="flex flex-col items-center justify-center gap-8 md:gap-10 max-w-sm">
 
 
-                                        {/* Zara-style minimal buttons */}
+                                        
                                         <div className="mt-20  flex flex-row gap-4 w-full max-w-xs">
                                             <Link href={product.shopMenLink} className="group text-xs uppercase tracking-[0.2em] text-black font-light border-b border-black/20 pb-1 hover:border-black active:border-black transition-all duration-300 text-center">
                                                 <span>Shop Men</span>

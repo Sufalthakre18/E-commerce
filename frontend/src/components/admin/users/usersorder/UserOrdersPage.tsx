@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 interface Product {
   name: string;
@@ -27,20 +27,48 @@ export default function UserOrdersPage() {
   const { userId } = useParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}/orders`,{
-        headers: {
-            Authorization: `Bearer ${getAuthToken()}`, // Adjust based on your auth method
-        },
-    })
-      .then((res) => res.json())
-      .then(setOrders);
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${userId}/orders`);
+        setOrders(data);
+      } catch (err: any) {
+        setError('Failed to load orders');
+        console.error('Failed to fetch orders:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (userId) fetchOrders();
   }, [userId]);
 
   const filtered = statusFilter
     ? orders.filter((order) => order.status === statusFilter)
     : orders;
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-3 sm:px-0">

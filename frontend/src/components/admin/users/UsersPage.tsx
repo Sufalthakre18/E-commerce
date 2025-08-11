@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 interface User {
     id: string;
@@ -20,13 +20,9 @@ export default function UsersPage() {
     const [pageSize] = useState(10);
 
     useEffect(() => {
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/`, {
-            headers: {
-                Authorization: `Bearer ${getAuthToken()}`, // Adjust based on your auth method
-            },
-        })
-            .then((res) => res.json())
-            .then(setUsers);
+        fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/`)
+            .then(setUsers)
+            .catch((err) => console.error('Error fetching users:', err));
     }, []);
 
     const filtered = users.filter((u) => {

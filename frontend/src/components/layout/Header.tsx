@@ -2,8 +2,14 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import { ShoppingBag, User, X } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
 import { useCartStore } from '@/store/cart';
+import { ShoppingBag, X, LogOut } from 'lucide-react';
+import { Source_Sans_3, Cinzel } from 'next/font/google';
+import { removeAuthToken } from '@/lib/utils/auth';
+
+const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'] });
+const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
 
 type DropdownKey = 'MEN' | 'WOMEN' | 'HOME' | null;
 
@@ -28,18 +34,9 @@ type MegaMenuData = {
   [K in Exclude<DropdownKey, null>]: MegaMenuSection;
 };
 
-// Mock user authentication state for demonstration
-// In a real application, this would come from a global state management library or API call
-const mockUser = {
-  isLoggedIn: true,
-  isAdmin: true,
-};
-
-// ===============================================
-// === Header Component
-// ===============================================
-
 export default function Header() {
+  const { data: session } = useSession();
+  const { totalItems } = useCartStore();
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [lastScrollY, setLastScrollY] = useState<number>(0);
   const [visible, setVisible] = useState<boolean>(true);
@@ -50,7 +47,6 @@ export default function Header() {
   const [isDropdownVisible, setIsDropdownVisible] = useState<boolean>(false);
   const [pulseBadge, setPulseBadge] = useState<boolean>(false);
   const [cartItemCount, setCartItemCount] = useState<number>(0);
-  const { totalItems } = useCartStore();
 
   useEffect(() => {
     setCartItemCount(totalItems());
@@ -66,7 +62,7 @@ export default function Header() {
   }, [totalItems, cartItemCount]);
 
   const toggleMenu = useCallback(() => {
-    setIsMenuOpen(prev => !prev);
+    setIsMenuOpen((prev) => !prev);
     if (!isMenuOpen) {
       setActiveDropdown(null);
     }
@@ -105,70 +101,70 @@ export default function Header() {
     MEN: {
       categories: [
         {
-          title: "Clothing",
-          items: ["T-Shirts & Tanks", "Shirts", "Jeans", "Pants", "Shorts", "Jackets", "Blazers", "Suits", "Knitwear", "Activewear"],
-          image: "https://images.unsplash.com/photo-1516826957135-700dedea698c?w=300&h=200&fit=crop"
+          title: 'Clothing',
+          items: ['T-Shirts & Tanks', 'Shirts', 'Jeans', 'Pants', 'Shorts', 'Jackets', 'Blazers', 'Suits', 'Knitwear', 'Activewear'],
+          image: 'https://images.unsplash.com/photo-1516826957135-700dedea698c?w=300&h=200&fit=crop',
         },
         {
-          title: "Shoes",
-          items: ["Sneakers", "Dress Shoes", "Boots", "Loafers", "Sandals", "Athletic"],
-          image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=300&h=200&fit=crop"
+          title: 'Shoes',
+          items: ['Sneakers', 'Dress Shoes', 'Boots', 'Loafers', 'Sandals', 'Athletic'],
+          image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=300&h=200&fit=crop',
         },
         {
-          title: "Accessories",
-          items: ["Watches", "Belts", "Wallets", "Bags", "Sunglasses", "Ties", "Cufflinks"],
-          image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&h=200&fit=crop"
-        }
+          title: 'Accessories',
+          items: ['Watches', 'Belts', 'Wallets', 'Bags', 'Sunglasses', 'Ties', 'Cufflinks'],
+          image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&h=200&fit=crop',
+        },
       ],
       featured: {
-        title: "New Collection",
-        subtitle: "Spring 2025",
-        image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=500&fit=crop"
-      }
+        title: 'New Collection',
+        subtitle: 'Spring 2025',
+        image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=500&fit=crop',
+      },
     },
     WOMEN: {
       categories: [
         {
-          title: "Clothing",
-          items: ["Dresses", "Tops & Blouses", "Jeans", "Pants", "Skirts", "Jackets", "Coats", "Knitwear", "Activewear", "Loungewear"],
-          image: "https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300&h=200&fit=crop"
+          title: 'Clothing',
+          items: ['Dresses', 'Tops & Blouses', 'Jeans', 'Pants', 'Skirts', 'Jackets', 'Coats', 'Knitwear', 'Activewear', 'Loungewear'],
+          image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300&h=200&fit=crop',
         },
         {
-          title: "Shoes",
-          items: ["Heels", "Flats", "Sneakers", "Boots", "Sandals", "Athletic"],
-          image: "https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&h=200&fit=crop"
+          title: 'Shoes',
+          items: ['Heels', 'Flats', 'Sneakers', 'Boots', 'Sandals', 'Athletic'],
+          image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&h=200&fit=crop',
         },
         {
-          title: "Accessories",
-          items: ["Handbags", "Jewelry", "Scarves", "Sunglasses", "Belts", "Watches"],
-          image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&h=200&fit=crop"
-        }
+          title: 'Accessories',
+          items: ['Handbags', 'Jewelry', 'Scarves', 'Sunglasses', 'Belts', 'Watches'],
+          image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&h=200&fit=crop',
+        },
       ],
       featured: {
-        title: "Summer Essentials",
-        subtitle: "New Arrivals",
-        image: "https://images.unsplash.com/photo-1494790108755-2616c2b8dce2?w=400&h=500&fit=crop"
-      }
+        title: 'Summer Essentials',
+        subtitle: 'New Arrivals',
+        image: 'https://images.unsplash.com/photo-1494790108755-2616c2b8dce2?w=400&h=500&fit=crop',
+      },
     },
     HOME: {
       categories: [
         {
-          title: "Living Room",
-          items: ["Sofas", "Coffee Tables", "Rugs", "Lighting", "Decor", "Storage"],
-          image: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300&h=200&fit=crop"
+          title: 'Living Room',
+          items: ['Sofas', 'Coffee Tables', 'Rugs', 'Lighting', 'Decor', 'Storage'],
+          image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300&h=200&fit=crop',
         },
         {
-          title: "Bedroom",
-          items: ["Bedding", "Pillows", "Throws", "Furniture", "Lighting"],
-          image: "https://images.unsplash.com/photo-1540518614846-7eded1432cc6?w=300&h=200&fit=crop"
+          title: 'Bedroom',
+          items: ['Bedding', 'Pillows', 'Throws', 'Furniture', 'Lighting'],
+          image: 'https://images.unsplash.com/photo-1540518614846-7eded1432cc6?w=300&h=200&fit=crop',
         },
       ],
       featured: {
-        title: "Home Collection",
-        subtitle: "New Season",
-        image: "https://images.unsplash.com/photo-1493663284031-b7e3aaa4cab7?w=400&h=500&fit=crop"
-      }
-    }
+        title: 'Home Collection',
+        subtitle: 'New Season',
+        image: 'https://images.unsplash.com/photo-1493663284031-b7e3aaa4cab7?w=400&h=500&fit=crop',
+      },
+    },
   };
 
   const navigationItems = useMemo(() => [
@@ -231,86 +227,87 @@ export default function Header() {
     }
   };
 
-  // User links based on authentication status
+  const handleLogout = async () => {
+    useCartStore.getState().clearCart();
+    removeAuthToken();
+    await signOut({ callbackUrl: '/login' });
+  };
+
   const userLinks = useMemo(() => {
-    if (mockUser.isLoggedIn && mockUser.isAdmin) {
+    if (session) {
       return (
         <>
-          <Link href="/admin" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
-            Admin Dashboard
-          </Link>
-          <Link href="/logout" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
-            Logout
-          </Link>
-        </>
-      );
-    }
-    if (mockUser.isLoggedIn) {
-      return (
-        <>
-          <Link href="/profile" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
+          <Link href="/profile" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
             Profile
           </Link>
-          <Link href="/logout" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
+          {session.user.role === 'ADMIN' && (
+            <Link href="/admin" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
+              Admin
+            </Link>
+          )}
+          <button
+            onClick={handleLogout}
+            className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 flex items-center gap-2`}
+          >
+            <LogOut className="w-5 h-5" />
             Logout
-          </Link>
+          </button>
         </>
       );
     }
     return (
       <>
-        <Link href="/login" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
+        <Link href="/login" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
           Login
         </Link>
-        <Link href="/register" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
+        <Link href="/register" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
           Register
         </Link>
       </>
     );
-  }, []);
+  }, [session]);
 
   const desktopUserLinks = useMemo(() => {
-    if (mockUser.isLoggedIn && mockUser.isAdmin) {
-      return (
-        <>
-          <Link href="/admin" title="Admin Dashboard">
-            <span className="p-2 text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-raleway font-light">Admin</span>
-          </Link>
-          <Link href="/logout" title="Logout">
-            <span className="p-2 text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-raleway font-light">Logout</span>
-          </Link>
-        </>
-      );
-    }
-    if (mockUser.isLoggedIn) {
+    if (session) {
       return (
         <>
           <Link href="/profile" title="Profile">
-            <span className="p-2 text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-raleway font-light">Profile</span>
+            <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Profile</span>
           </Link>
-          <Link href="/logout" title="Logout">
-            <span className="p-2 text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-raleway font-light">Logout</span>
-          </Link>
+          {session.user.role === 'ADMIN' && (
+            <Link href="/admin" title="Admin Dashboard">
+              <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Admin</span>
+            </Link>
+          )}
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light flex items-center gap-2`}
+          >
+            <LogOut className="w-5 h-5" />
+            Logout
+          </button>
         </>
       );
     }
     return (
       <>
         <Link href="/login" title="Login">
-          <span className="p-2 text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-raleway font-light">Login</span>
+          <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Login</span>
         </Link>
         <Link href="/register" title="Register">
-          <span className="p-2 text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-raleway font-light">Register</span>
+          <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Register</span>
         </Link>
       </>
     );
-  }, []);
+  }, [session]);
 
   return (
     <div className="relative">
       <header
-        className={`fixed top-0 left-0 right-0 z-50 mx-auto max-w-[2560px] rounded-b-2xl px-2.5 lg:px-8 transition-all duration-300 ease-in-out ${visible ? 'translate-y-0' : '-translate-y-full'
-          } ${scrolled ? 'py-2 bg-white shadow-md' : 'py-3 bg-transparent'}`}
+        className={`fixed top-0 left-0 right-0 z-50 mx-auto max-w-[2560px] rounded-b-2xl px-2.5 lg:px-8 transition-all duration-300 ease-in-out ${
+          visible ? 'translate-y-0' : '-translate-y-full'
+        } ${scrolled ? 'py-2 bg-white shadow-md' : 'py-3 bg-transparent'}`}
       >
         {/* Mobile Header */}
         <div className="relative flex h-12 items-center justify-between lg:hidden">
@@ -320,7 +317,7 @@ export default function Header() {
             className="relative inline-flex items-center justify-center rounded-md p-2 text-gray-900 hover:text-gray-600 transition-colors duration-200"
             onClick={toggleMenu}
             type="button"
-            aria-label={isMenuOpen ? "Close main menu" : "Open main menu"}
+            aria-label={isMenuOpen ? 'Close main menu' : 'Open main menu'}
           >
             {isMenuOpen ? (
               <X className="size-6" />
@@ -332,19 +329,25 @@ export default function Header() {
               </svg>
             )}
           </button>
-          
-          <Link href="/" title="LUXE" className="absolute inset-0 mx-auto flex max-w-[120px] items-center justify-center lg:relative">
-            <span className="text-2xl font-cinzel font-light text-gray-900 tracking-wider hover:text-gray-700 transition-colors duration-200 cursor-pointer">
-              LUXE
+
+          <Link href="/" title="Your Store" className="absolute inset-0 mx-auto flex max-w-[120px] items-center justify-center lg:relative">
+            <span className={`${cinzel.className} text-2xl font-semibold text-gray-900 tracking-wider hover:text-gray-700 transition-colors duration-200 cursor-pointer`}>
+              Your Store
             </span>
           </Link>
-          
+
           <div className="flex items-center">
             <Link href="/cart" title="View Cart">
-              <button type="button" className="relative flex items-center p-2 text-gray-900 hover:text-gray-700 rounded-md transition-colors duration-200" aria-label="View Cart">
+              <button
+                type="button"
+                className="relative flex items-center p-2 text-gray-900 hover:text-gray-700 rounded-md transition-colors duration-200"
+                aria-label="View Cart"
+              >
                 <ShoppingBag className="size-6" />
                 <span
-                  className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] font-raleway font-medium text-white transition-all duration-300 ${cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'} ${pulseBadge ? 'animate-pulse-cart' : ''}`}
+                  className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${
+                    cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
+                  } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
                 >
                   {cartItemCount > 99 ? '99+' : cartItemCount}
                 </span>
@@ -357,23 +360,18 @@ export default function Header() {
         <div className="relative hidden h-14 items-center justify-between lg:flex">
           <div className="flex w-full items-center justify-between">
             <div className="flex flex-1 shrink-0 items-center">
-              <Link href="/" title="LUXE">
-                <span className="text-3xl font-cinzel font-light text-gray-900 tracking-wider hover:text-gray-700 transition-colors duration-200 cursor-pointer">
-                  LUXE
+              <Link href="/" title="Your Store">
+                <span className={`${cinzel.className} text-3xl font-semibold text-gray-900 tracking-wider hover:text-gray-700 transition-colors duration-200 cursor-pointer`}>
+                  Your Store
                 </span>
               </Link>
             </div>
 
             <nav className="flex flex-1 justify-center gap-10" role="navigation">
               {navigationItems.map((item) => (
-                <div 
-                  key={item.label}
-                  className="relative"
-                  onMouseEnter={() => handleMouseEnter(item.label)}
-                  onMouseLeave={handleMouseLeave}
-                >
+                <div key={item.label} className="relative" onMouseEnter={() => handleMouseEnter(item.label)} onMouseLeave={handleMouseLeave}>
                   <Link href={item.href}>
-                    <span className={`relative text-sm font-raleway font-light tracking-[0.2em] uppercase transition-colors duration-200 nav-item cursor-pointer ${item.className}`}>
+                    <span className={`relative text-sm ${sourceSansPro.className} font-light tracking-[0.2em] uppercase transition-colors duration-200 nav-item cursor-pointer ${item.className}`}>
                       {item.label}
                     </span>
                   </Link>
@@ -382,21 +380,20 @@ export default function Header() {
             </nav>
 
             <div className="flex flex-1 items-center justify-end gap-6">
-              <ul className="flex items-center gap-4">
-                {desktopUserLinks}
-              </ul>
+              <ul className="flex items-center gap-4">{desktopUserLinks}</ul>
 
               <div className="flex items-center gap-3">
-                <Link href="#" title="Search">
-                  <span className="p-2 text-gray-800 hover:text-red-700 rounded-md transition-colors duration-200 cursor-pointer" aria-label="Search">
-                    {/* Add a search icon here if needed */}
-                  </span>
-                </Link>
                 <Link href="/cart" title="View Cart">
-                  <button type="button" className="relative flex items-center p-2 text-gray-800 hover:text-red-700 rounded-md transition-colors duration-200" aria-label="View Cart">
+                  <button
+                    type="button"
+                    className="relative flex items-center p-2 text-gray-800 hover:text-red-700 rounded-md transition-colors duration-200"
+                    aria-label="View Cart"
+                  >
                     <ShoppingBag className="size-5" />
                     <span
-                      className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] font-raleway font-medium text-white transition-all duration-300 ${cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'} ${pulseBadge ? 'animate-pulse-cart' : ''}`}
+                      className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${
+                        cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
+                      } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
                     >
                       {cartItemCount > 99 ? '99+' : cartItemCount}
                     </span>
@@ -408,19 +405,17 @@ export default function Header() {
         </div>
 
         {/* Mobile Menu (Full-screen overlay) */}
-        <div className={`fixed inset-0 z-40 bg-white transition-transform duration-500 ease-in-out lg:hidden ${
-          isMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}>
+        <div
+          className={`fixed inset-0 z-40 bg-white transition-transform duration-500 ease-in-out lg:hidden ${
+            isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
           <div className="flex h-12 items-center justify-between px-2.5">
-            <button
-              className="p-2"
-              onClick={toggleMenu}
-              aria-label="Close menu"
-            >
+            <button className="p-2" onClick={toggleMenu} aria-label="Close menu">
               <X className="size-6 text-gray-900" />
             </button>
-            <Link href="/" title="LUXE" onClick={toggleMenu}>
-              <span className="text-2xl font-cinzel font-light text-gray-900 tracking-wider">LUXE</span>
+            <Link href="/" title="Your Store" onClick={toggleMenu}>
+              <span className={`${cinzel.className} text-2xl font-semibold text-gray-900 tracking-wider`}>Your Store</span>
             </Link>
             <div className="p-2 w-10"></div> {/* Spacer for alignment */}
           </div>
@@ -430,14 +425,15 @@ export default function Header() {
                 <div key={item.label} className="border-b border-gray-200">
                   <button
                     onClick={() => handleMobileDropdownToggle(item.label)}
-                    className="w-full py-4 text-left text-lg font-cinzel font-normal uppercase tracking-wide flex items-center justify-between text-gray-900"
+                    className="w-full py-4 text-left text-lg font-normal uppercase tracking-wide flex items-center justify-between text-gray-900"
+                    style={{ fontFamily: cinzel.style.fontFamily }}
                   >
                     <span>{item.label}</span>
                     {megaMenuData[item.label as keyof MegaMenuData] && (
-                      <svg 
+                      <svg
                         className={`w-5 h-5 transition-transform duration-200 text-gray-600 ${activeDropdown === item.label ? 'rotate-180' : ''}`}
-                        fill="none" 
-                        viewBox="0 0 24 24" 
+                        fill="none"
+                        viewBox="0 0 24 24"
                         stroke="currentColor"
                         strokeWidth={1.5}
                       >
@@ -449,10 +445,15 @@ export default function Header() {
                     <div className="py-4 space-y-6">
                       {megaMenuData[item.label as keyof MegaMenuData].categories.map((category, index) => (
                         <div key={index}>
-                          <h4 className="text-sm font-raleway font-medium uppercase tracking-wider text-gray-500 mb-4">{category.title}</h4>
+                          <h4 className={`text-sm ${sourceSansPro.className} font-medium uppercase tracking-wider text-gray-500 mb-4`}>{category.title}</h4>
                           <div className="grid grid-cols-2 gap-4">
                             {category.items.map((subItem, subIndex) => (
-                              <Link key={subIndex} href="#" className="text-sm text-gray-700 hover:text-red-700 transition-colors duration-200 font-raleway font-light" onClick={toggleMenu}>
+                              <Link
+                                key={subIndex}
+                                href="#"
+                                className={`text-sm ${sourceSansPro.className} text-gray-700 hover:text-red-700 transition-colors duration-200 font-light`}
+                                onClick={toggleMenu}
+                              >
                                 {subItem}
                               </Link>
                             ))}
@@ -463,18 +464,7 @@ export default function Header() {
                   )}
                 </div>
               ))}
-              <div className="pt-4 space-y-4 font-raleway font-light">
-                {userLinks}
-                <Link href="#" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
-                  Our Stores
-                </Link>
-                <Link href="#" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
-                  About
-                </Link>
-                <Link href="#" className="block text-sm text-gray-800 hover:text-red-700 transition-colors duration-200">
-                  Concierge
-                </Link>
-              </div>
+              <div className={`pt-4 space-y-4 ${sourceSansPro.className} font-light`}>{userLinks}</div>
             </div>
           </div>
         </div>
@@ -482,13 +472,11 @@ export default function Header() {
 
       {/* Mega Menu Dropdown */}
       {activeDropdown && megaMenuData[activeDropdown] && (
-        <div 
+        <div
           className={`fixed left-0 right-0 z-40 bg-white shadow-2xl border-t border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${
             scrolled ? 'top-12' : 'top-16'
           } ${visible ? 'translate-y-0' : '-translate-y-full'} ${
-            isDropdownVisible 
-              ? 'max-h-[600px] opacity-100 transform translate-y-0' 
-              : 'max-h-0 opacity-0 transform -translate-y-4'
+            isDropdownVisible ? 'max-h-[600px] opacity-100 transform translate-y-0' : 'max-h-0 opacity-0 transform -translate-y-4'
           }`}
           onMouseEnter={handleDropdownMouseEnter}
           onMouseLeave={handleDropdownMouseLeave}
@@ -498,19 +486,19 @@ export default function Header() {
               {megaMenuData[activeDropdown].categories.map((category, index) => (
                 <div key={index} className="space-y-8">
                   <div className="relative overflow-hidden">
-                    <img 
-                      src={category.image} 
-                      alt={category.title}
-                      className="w-full h-56 object-cover"
-                    />
+                    <img src={category.image} alt={category.title} className="w-full h-56 object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                     <div className="absolute bottom-6 left-6">
-                      <h3 className="text-white font-cinzel font-medium text-xl tracking-wide uppercase">{category.title}</h3>
+                      <h3 className={`text-white ${cinzel.className} font-medium text-xl tracking-wide uppercase`}>{category.title}</h3>
                     </div>
                   </div>
                   <div className="space-y-3 pl-2">
                     {category.items.map((item, itemIndex) => (
-                      <Link key={itemIndex} href="#" className="block text-sm text-slate-600 hover:text-slate-900 transition-colors duration-200 font-raleway font-light">
+                      <Link
+                        key={itemIndex}
+                        href="#"
+                        className={`block text-sm ${sourceSansPro.className} text-slate-600 hover:text-slate-900 transition-colors duration-200 font-light`}
+                      >
                         {item}
                       </Link>
                     ))}
@@ -521,16 +509,14 @@ export default function Header() {
               {/* Featured Section */}
               <div className="space-y-8">
                 <div className="relative overflow-hidden">
-                  <img 
-                    src={megaMenuData[activeDropdown].featured.image} 
-                    alt={megaMenuData[activeDropdown].featured.title}
-                    className="w-full h-96 object-cover"
-                  />
+                  <img src={megaMenuData[activeDropdown].featured.image} alt={megaMenuData[activeDropdown].featured.title} className="w-full h-96 object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                   <div className="absolute bottom-8 left-8 right-8">
-                    <p className="text-gray-300 text-sm font-raleway font-medium tracking-wide uppercase mb-3">{megaMenuData[activeDropdown].featured.subtitle}</p>
-                    <h3 className="text-white font-cinzel font-medium text-3xl mb-6 tracking-wide">{megaMenuData[activeDropdown].featured.title}</h3>
-                    <button className="bg-white text-black px-8 py-3 text-sm font-raleway font-medium tracking-wide uppercase hover:bg-gray-100 transition-colors duration-200">
+                    <p className={`text-gray-300 text-sm ${sourceSansPro.className} font-medium tracking-wide uppercase mb-3`}>
+                      {megaMenuData[activeDropdown].featured.subtitle}
+                    </p>
+                    <h3 className={`text-white ${cinzel.className} font-medium text-3xl mb-6 tracking-wide`}>{megaMenuData[activeDropdown].featured.title}</h3>
+                    <button className="bg-white text-black px-8 py-3 text-sm font-medium tracking-wide uppercase hover:bg-gray-100 transition-colors duration-200" style={{ fontFamily: sourceSansPro.style.fontFamily }}>
                       Shop Now
                     </button>
                   </div>

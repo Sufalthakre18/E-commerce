@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Source_Sans_3, Cinzel } from 'next/font/google';
 import { Package, Truck, Star, MapPin } from 'lucide-react';
 import Link from 'next/link';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import RefundDetailsModal from '@/components/orders/RefundDetailsModal';
 
 // Premium fonts
@@ -91,20 +91,13 @@ export default function OrderDetailsPage() {
     const { id } = useParams();
 
     useEffect(() => {
-        const token = getAuthToken();
-        if (!token) {
-            router.push('/login?redirect=/orders');
-            return;
-        }
+        
 
         const fetchOrder = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/order/user/${id}`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/user/${id}`, {
                     cache: 'no-store',
                 });
-                if (!res.ok) throw new Error('Failed to fetch order');
-                const data = await res.json();
                 setOrder(data);
             } catch (err) {
                 console.error(err);
@@ -120,17 +113,12 @@ export default function OrderDetailsPage() {
 
     useEffect(() => {
         if (!order?.items || !order?.userId) return;
-        const token = getAuthToken();
-        if (!token) return;
+      
 
         const fetchReviewStatus = async () => {
             try {
                 const statusPromises = order.items.map(async (item) => {
-                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/product/${item.productId}`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-                    if (!res.ok) throw new Error(`Failed to fetch reviews for ${item.productId}`);
-                    const data = await res.json();
+                    const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/reviews/product/${item.productId}`);
                     const userReview = data.reviews.find((review: any) => review.userId === order.userId);
                     return {
                         productId: item.productId,
@@ -169,14 +157,9 @@ export default function OrderDetailsPage() {
         if (!window.confirm('Are you sure you want to cancel this order?')) return;
 
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/order/cancel/${id}`, {
+            await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/cancel/${id}`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${getAuthToken()}` },
             });
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error?.error || 'Something went wrong');
-            }
             toast.success('Order cancelled successfully');
             setOrder((prev) => (prev ? { ...prev, status: 'CANCELLED' } : null));
         } catch (err: any) {
@@ -191,14 +174,9 @@ export default function OrderDetailsPage() {
 
     const handleReturnSubmit = async () => {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/order/return/${id}`, {
+            await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/return/${id}`, {
                 method: 'POST',
-                headers: { Authorization: `Bearer ${getAuthToken()}` },
             });
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error?.error || 'Something went wrong');
-            }
             toast.success('Return request submitted successfully');
             setShowRefundModal(false);
             setOrder((prev) => (prev ? { ...prev, status: 'RETURN_REQUESTED' } : null));
@@ -226,23 +204,14 @@ export default function OrderDetailsPage() {
                 : `${process.env.NEXT_PUBLIC_API_URL}/reviews/`;
             const method = isEditing ? 'PUT' : 'POST';
 
-            const res = await fetch(url, {
+            await fetchWrapper(url, {
                 method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${getAuthToken()}`,
-                },
                 body: JSON.stringify({
                     productId: review.productId,
                     rating: review.rating,
                     comment: review.comment,
                 }),
             });
-
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error?.error || `Failed to ${isEditing ? 'update' : 'submit'} review`);
-            }
 
             toast.success(`Review ${isEditing ? 'updated' : 'submitted'} successfully`);
             if (!isEditing) {

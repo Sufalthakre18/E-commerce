@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useCartStore } from '@/store/cart';
@@ -6,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState, useMemo, useEffect } from 'react';
 import CheckoutAddressSection from './CheckoutAddressSection';
-import { getAuthToken } from '@/lib/utils/auth';
+import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import { loadRazorpay } from '@/lib/utils/loadRazorpay';
 import { toast } from 'sonner';
 import { Cinzel, Source_Sans_3 } from 'next/font/google';
@@ -86,18 +87,9 @@ export function CheckoutForm() {
     setAppliedCoupon(null);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/promo/validate?code=${couponCodeInput.trim()}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-      });
-
-      const data: AppliedPromotion = await res.json();
-      if (!res.ok || !data.valid) {
-        throw new Error(data.message || 'Invalid or expired coupon code.');
-      }
-
+      const data: AppliedPromotion = await fetchWrapper(
+        `${process.env.NEXT_PUBLIC_API_URL}/promo/validate?code=${couponCodeInput.trim()}`
+      );
       setAppliedCoupon({ ...data, code: couponCodeInput.trim().toUpperCase() });
       toast.success(data.message || 'Coupon applied successfully!');
     } catch (err: any) {
@@ -120,7 +112,6 @@ export function CheckoutForm() {
     }
 
     setIsLoading(true);
-    const token = getAuthToken();
     const commonPayload = {
       addressId: selectedAddress.id,
       items: items.map((item) => ({
@@ -135,17 +126,10 @@ export function CheckoutForm() {
 
     try {
       if (data.paymentMethod === 'COD') {
-        const codRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/order/cod`, {
+        const codData = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/cod`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
           body: JSON.stringify(commonPayload),
         });
-
-        const codData = await codRes.json();
-        if (!codRes.ok) throw new Error(codData.error || 'COD order failed');
 
         toast.success('Order placed successfully with Cash on Delivery!');
         clearCart();
@@ -159,17 +143,10 @@ export function CheckoutForm() {
           return;
         }
 
-        const razorRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/order/razorpay`, {
+        const razorData = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/razorpay`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
           body: JSON.stringify(commonPayload),
         });
-
-        const razorData = await razorRes.json();
-        if (!razorRes.ok) throw new Error(razorData.error || 'Razorpay order failed');
 
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
@@ -180,12 +157,8 @@ export function CheckoutForm() {
           order_id: razorData.razorpayOrderId,
           handler: async function (response: any) {
             try {
-              const verifyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payment/verify`, {
+              const verifyData = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/payment/verify`, {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify({
                   razorpay_order_id: razorData.razorpayOrderId,
                   razorpay_payment_id: response.razorpay_payment_id,
@@ -194,13 +167,10 @@ export function CheckoutForm() {
                 }),
               });
 
-              const verifyData = await verifyRes.json();
-              if (!verifyRes.ok) throw new Error(verifyData.error || 'Payment verification failed');
-
               toast.success('Payment successful!');
               clearCart();
               window.location.href = '/thank-you';
-            } catch (err) {
+            } catch (err: any) {
               console.error('Payment verification failed:', err);
               toast.error('Payment succeeded but could not be verified. Please contact support.');
             }
