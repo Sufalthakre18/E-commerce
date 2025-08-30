@@ -1,54 +1,69 @@
+// Updated frontend EditProductPage (fixed deletions to use database ids instead of publicIds)
+
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import Image from 'next/image';
+import { toast } from 'sonner';
+import { Loader2, X, Plus } from 'lucide-react';
 
-type Size = {
+// Define types
+interface Size {
   id?: string;
   size: string;
   stock: number;
-};
+}
 
-type Variant = {
+interface Variant {
   id?: string;
   color: string;
   colorCode: string;
   price: number;
   imageFiles?: File[];
-  existingImages?: Array<{ id: string; url: string }>;
+  images?: Array<{ id: string; url: string; publicId: string }>;
   imagesToDelete?: string[];
-};
+  newImageIndices?: number[];
+}
 
-type ProductImage = {
+interface ProductImage {
   id: string;
   url: string;
   publicId: string;
-};
+}
 
-type FormDataType = {
+interface DigitalFile {
+  id: string;
+  url: string;
+  publicId: string;
+  fileName: string;
+}
+
+interface FormDataType {
   name: string;
   price: number;
   stock: number;
   description: string;
   details: string;
   categoryId: string;
+  productType: 'physical' | 'digital';
+  type: string;
   sizes: Size[];
   variants: Variant[];
-  type: string;
-};
+}
 
-type Category = {
+interface Category {
   id: string;
   name: string;
   parentId?: string | null;
   subcategories?: Category[];
-};
+}
 
 export default function EditProductPage() {
   const router = useRouter();
-  const { id } = useParams();
+  const { id } = useParams() as { id: string };
 
   const [formData, setFormData] = useState<FormDataType>({
     name: '',
@@ -57,134 +72,223 @@ export default function EditProductPage() {
     description: '',
     details: '',
     categoryId: '',
+    productType: 'physical',
+    type: '',
     sizes: [],
     variants: [],
-    type: '',
   });
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [newImages, setNewImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
-  const [newImages, setNewImages] = useState<File[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [fetchLoading, setFetchLoading] = useState(true);
-  const [success, setSuccess] = useState(false);
+  const [newDigitalFiles, setNewDigitalFiles] = useState<File[]>([]);
+  const [existingDigitalFiles, setExistingDigitalFiles] = useState<DigitalFile[]>([]);
+  const [digitalFilesToDelete, setDigitalFilesToDelete] = useState<string[]>([]);
+  const [variantImages, setVariantImages] = useState<File[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`);
-        setCategories(data);
-      } catch (err: any) {
-        console.error('Failed to load categories:', err);
-        setErrors({ general: 'Failed to load categories' });
-      }
-    };
-    fetchCategories();
-  }, []);
+  // Fetch categories
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: () => fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/category`),
+  });
 
   // Fetch product data
-  useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        setFetchLoading(true);
-        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`);
-        setFormData({
-          name: data.name || '',
-          price: data.price || 0,
-          stock: data.stock || 0,
-          description: data.description || '',
-          details: data.details || '',
-          categoryId: data.categoryId || '',
-          sizes: data.sizes || [],
-          type: data.type || '',
-          variants: (data.variants || []).map((v: any) => ({
-            id: v.id,
-            color: v.color || '',
-            colorCode: v.colorCode || '#000000',
-            price: v.price || 0,
-            imageFiles: [],
-            existingImages: v.images || [],
-            imagesToDelete: [],
-          })),
-        });
-        setExistingImages(data.images || []);
-      } catch (error: any) {
-        setErrors({ general: 'Failed to load product data' });
-      } finally {
-        setFetchLoading(false);
-      }
+  const { data: productData, isLoading: productLoading } = useQuery<{
+    data: {
+      name: string;
+      price: number;
+      stock: number;
+      description: string;
+      details: string;
+      categoryId: string;
+      productType: 'physical' | 'digital';
+      type: string;
+      sizes: Size[];
+      variants: Variant[];
+      images: ProductImage[];
+      digitalFiles: DigitalFile[];
     };
+  }>({
+    queryKey: ['product', id],
+    queryFn: () => fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`),
+    enabled: !!id,
+  });
 
-    if (id) fetchProduct();
-  }, [id]);
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const finalValue = type === 'number' ? parseFloat(value) || 0 : value;
-
-    setFormData(prev => ({ ...prev, [name]: finalValue }));
-
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+  useEffect(() => {
+    if (productData?.data) {
+      setFormData({
+        name: productData.data.name || '',
+        price: productData.data.price || 0,
+        stock: productData.data.stock || 0,
+        description: productData.data.description || '',
+        details: productData.data.details || '',
+        categoryId: productData.data.categoryId || '',
+        productType: productData.data.productType || 'physical',
+        type: productData.data.type || '',
+        sizes: productData.data.sizes || [],
+        variants: (productData.data.variants || []).map((v: Variant) => ({
+          id: v.id,
+          color: v.color || '',
+          colorCode: v.colorCode || '#000000',
+          price: v.price || productData.data.price || 0,
+          images: v.images || [],
+          imagesToDelete: [],
+          imageFiles: [],
+          newImageIndices: [],
+        })),
+      });
+      setExistingImages(productData.data.images || []);
+      setExistingDigitalFiles(productData.data.digitalFiles || []);
     }
-  }, [errors]);
+  }, [productData]);
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: async (form: FormData) => {
+      const response = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
+        method: 'PUT',
+        body: form,
+      });
+      console.log('Raw backend response:', response);
+      return response;
+    },
+    onSuccess: () => {
+      toast.success('Product updated successfully!');
+      setTimeout(() => router.push('/admin/products'), 1500);
+    },
+    onError: (error: any) => {
+      console.error('Update product error:', error);
+      toast.error(error.message || 'Failed to update product. Check console for details.', { duration: 5000 });
+    },
+  });
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const { name, value, type } = e.target;
+      const finalValue = type === 'number' ? parseFloat(value) || 0 : value;
+
+      setFormData(prev => ({ ...prev, [name]: finalValue }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    },
+    []
+  );
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {};
+  const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) newErrors.name = 'Product name is required';
-    if (formData.price <= 0) newErrors.price = 'Price must be greater than 0';
-    if (formData.stock < 0) newErrors.stock = 'Stock cannot be negative';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.details.trim()) newErrors.details = 'Details is required';
-    if (!formData.type.trim()) newErrors.type = 'Type is required';
-    if (!formData.categoryId) newErrors.categoryId = 'Please select a category';
+  if (!formData.name.trim()) newErrors.name = 'Product name is required';
+  if (formData.price <= 0) newErrors.price = 'Price must be greater than 0';
+  if (formData.productType === 'physical' && formData.stock < 0) newErrors.stock = 'Stock cannot be negative';
+  if (!formData.description.trim()) newErrors.description = 'Description is required';
+  if (!formData.details.trim()) newErrors.details = 'Details is required';
+  if (!formData.type.trim()) newErrors.type = 'Type is required';
+  if (!formData.categoryId) newErrors.categoryId = 'Please select a category';
 
-    // Validate variants
-    formData.variants.forEach((variant, index) => {
-      if (!variant.color.trim()) newErrors[`variant_${index}_color`] = 'Color is required';
-      if (!variant.colorCode.trim()) newErrors[`variant_${index}_colorCode`] = 'Color code is required';
-      if (variant.price <= 0) newErrors[`variant_${index}_price`] = 'Variant price must be greater than 0';
-    });
+  formData.variants.forEach((variant, index) => {
+    if (!variant.color.trim()) newErrors[`variant_${index}_color`] = `Color is required for variant ${index + 1}`;
+    if (!variant.colorCode.trim()) newErrors[`variant_${index}_colorCode`] = `Color code is required for variant ${index + 1}`;
+    if (variant.price <= 0) newErrors[`variant_${index}_price`] = `Price must be greater than 0 for variant ${index + 1}`;
+  });
 
-    // Validate sizes
-    formData.sizes.forEach((size, index) => {
-      if (!size.size.trim()) newErrors[`size_${index}_size`] = 'Size is required';
-      if (size.stock < 0) newErrors[`size_${index}_stock`] = 'Size stock cannot be negative';
-    });
+  formData.sizes.forEach((size, index) => {
+    if (!size.size.trim()) newErrors[`size_${index}_size`] = `Size is required for size ${index + 1}`;
+    if (size.stock < 0) newErrors[`size_${index}_stock`] = `Stock cannot be negative for size ${index + 1}`;
+  });
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  // Validate imagesToDelete and digitalFilesToDelete
+  imagesToDelete.forEach((id, index) => {
+    if (!id || typeof id !== 'string') {
+      newErrors[`imageToDelete_${index}`] = `Invalid image ID for deletion at index ${index + 1}`;
+    }
+  });
+  digitalFilesToDelete.forEach((id, index) => {
+    if (!id || typeof id !== 'string') {
+      newErrors[`digitalFileToDelete_${index}`] = `Invalid digital file ID for deletion at index ${index + 1}`;
+    }
+  });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setErrors(newErrors);
+
+  if (Object.keys(newErrors).length > 0) {
+    console.log('Form validation errors:', newErrors);
+    toast.error(
+      <div>
+        <p>Please fix the following form errors:</p>
+        <ul className="list-disc pl-4">
+          {Object.entries(newErrors).map(([key, message]) => (
+            <li key={key} className="text-sm">{message}</li>
+          ))}
+        </ul>
+      </div>,
+      { duration: 5000 }
+    );
+    return false;
+  }
+
+  return true;
+};
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'digital') => {
     const files = e.target.files;
     if (!files) return;
 
     const validFiles = Array.from(files).filter(file => {
-      const isValid = file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024;
-      if (!isValid) {
-        setErrors(prev => ({ ...prev, images: 'Please select valid image files under 5MB' }));
+      if (type === 'image') {
+        const isValid = file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024;
+        if (!isValid) setErrors(prev => ({ ...prev, images: 'Please select valid image files under 5MB' }));
+        return isValid;
+      } else {
+        const allowedTypes = ['application/pdf', 'application/zip', 'audio/mpeg'];
+        const isValid = allowedTypes.includes(file.type) && file.size <= 50 * 1024 * 1024;
+        if (!isValid) setErrors(prev => ({ ...prev, digitalFiles: 'Please select valid PDF, ZIP, or MP3 files under 50MB' }));
+        return isValid;
       }
-      return isValid;
     });
 
-    setNewImages(prev => [...prev, ...validFiles]);
+    if (type === 'image') {
+      setNewImages(prev => [...prev, ...validFiles]);
+    } else {
+      setNewDigitalFiles(prev => [...prev, ...validFiles]);
+    }
   };
 
   const removeNewImage = (index: number) => {
+    console.log('Removing new image at index:', index);
     setNewImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const removeExistingImage = (imgId: string) => {
-    setImagesToDelete(prev => [...prev, imgId]);
-    setExistingImages(prev => prev.filter(img => img.id !== imgId));
+  const removeExistingImage = (id: string) => {
+    console.log('Removing existing image with id:', id);
+    if (!id || typeof id !== 'string') {
+      console.warn('Invalid id for image deletion:', id);
+      toast.error('Cannot delete image: Invalid ID');
+      return;
+    }
+    if (confirm('Are you sure you want to delete this image? This action is permanent.')) {
+      setImagesToDelete(prev => [...prev, id]);
+      setExistingImages(prev => prev.filter(img => img.id !== id));
+    }
   };
 
-  // Size management
+  const removeNewDigitalFile = (index: number) => {
+    console.log('Removing new digital file at index:', index);
+    setNewDigitalFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingDigitalFile = (id: string) => {
+    console.log('Removing existing digital file with id:', id);
+    if (!id || typeof id !== 'string') {
+      console.warn('Invalid id for digital file deletion:', id);
+      toast.error('Cannot delete digital file: Invalid ID');
+      return;
+    }
+    if (confirm('Are you sure you want to delete this digital file? This action is permanent.')) {
+      setDigitalFilesToDelete(prev => [...prev, id]);
+      setExistingDigitalFiles(prev => prev.filter(file => file.id !== id));
+    }
+  };
+
   const addSize = () => {
     setFormData(prev => ({
       ...prev,
@@ -195,9 +299,7 @@ export default function EditProductPage() {
   const updateSize = (index: number, field: keyof Size, value: string | number) => {
     setFormData(prev => ({
       ...prev,
-      sizes: prev.sizes.map((size, i) =>
-        i === index ? { ...size, [field]: value } : size
-      ),
+      sizes: prev.sizes.map((size, i) => (i === index ? { ...size, [field]: value } : size)),
     }));
   };
 
@@ -208,7 +310,6 @@ export default function EditProductPage() {
     }));
   };
 
-  // Variant management
   const addVariant = () => {
     setFormData(prev => ({
       ...prev,
@@ -217,10 +318,11 @@ export default function EditProductPage() {
         {
           color: '',
           colorCode: '#000000',
-          price: formData.price,
+          price: formData.price || 0,
           imageFiles: [],
-          existingImages: [],
+          images: [],
           imagesToDelete: [],
+          newImageIndices: [],
         },
       ],
     }));
@@ -229,9 +331,7 @@ export default function EditProductPage() {
   const updateVariant = (index: number, field: keyof Variant, value: any) => {
     setFormData(prev => ({
       ...prev,
-      variants: prev.variants.map((variant, i) =>
-        i === index ? { ...variant, [field]: value } : variant
-      ),
+      variants: prev.variants.map((variant, i) => (i === index ? { ...variant, [field]: value } : variant)),
     }));
   };
 
@@ -242,25 +342,9 @@ export default function EditProductPage() {
     }));
   };
 
-  const removeVariantImage = (variantIndex: number, imageId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      variants: prev.variants.map((variant, i) => {
-        if (i === variantIndex) {
-          return {
-            ...variant,
-            existingImages: variant.existingImages?.filter(img => img.id !== imageId) || [],
-            imagesToDelete: [...(variant.imagesToDelete || []), imageId],
-          };
-        }
-        return variant;
-      }),
-    }));
-  };
-
   const handleVariantImageChange = (variantIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
+    if (!files) return;
 
     const validFiles = Array.from(files).filter(file => {
       const isValid = file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024;
@@ -275,34 +359,52 @@ export default function EditProductPage() {
 
     if (validFiles.length === 0) return;
 
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[`variant_${variantIndex}_images`];
-      return newErrors;
-    });
-
-    setFormData(prev => {
-      const newVariants = prev.variants.map((variant, i) => {
+    setVariantImages(prev => [...prev, ...validFiles]);
+    setFormData(prev => ({
+      ...prev,
+      variants: prev.variants.map((variant, i) => {
         if (i === variantIndex) {
           const currentFiles = variant.imageFiles || [];
+          const newIndices = validFiles.map((_, idx) => variantImages.length + idx);
           return {
             ...variant,
             imageFiles: [...currentFiles, ...validFiles],
+            newImageIndices: [...(variant.newImageIndices || []), ...newIndices],
           };
         }
         return variant;
-      });
-
-      return {
-        ...prev,
-        variants: newVariants,
-      };
-    });
+      }),
+    }));
 
     e.target.value = '';
   };
 
+  const removeVariantImage = (variantIndex: number, imageId: string) => {
+    console.log('Removing variant image with id:', imageId);
+    if (!imageId || typeof imageId !== 'string') {
+      console.warn('Invalid id for variant image deletion:', imageId);
+      toast.error('Cannot delete variant image: Invalid ID');
+      return;
+    }
+    if (confirm('Are you sure you want to delete this variant image? This action is permanent.')) {
+      setFormData(prev => ({
+        ...prev,
+        variants: prev.variants.map((variant, i) => {
+          if (i === variantIndex) {
+            return {
+              ...variant,
+              images: variant.images?.filter(img => img.id !== imageId) || [],
+              imagesToDelete: [...(variant.imagesToDelete || []), imageId],
+            };
+          }
+          return variant;
+        }),
+      }));
+    }
+  };
+
   const removeVariantNewImage = (variantIndex: number, imageIndex: number) => {
+    console.log('Removing new variant image at index:', imageIndex);
     setFormData(prev => ({
       ...prev,
       variants: prev.variants.map((variant, i) => {
@@ -310,114 +412,78 @@ export default function EditProductPage() {
           return {
             ...variant,
             imageFiles: variant.imageFiles?.filter((_, idx) => idx !== imageIndex) || [],
+            newImageIndices: variant.newImageIndices?.filter((_, idx) => idx !== imageIndex) || [],
           };
         }
         return variant;
       }),
     }));
+    setVariantImages(prev => prev.filter((_, idx) => idx !== imageIndex));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      setErrors(prev => ({ ...prev, general: 'Please fix the errors above' }));
       return;
     }
 
-    setLoading(true);
-    setErrors({});
+    const form = new FormData();
+    form.append('name', formData.name);
+    form.append('price', formData.price.toString());
+    form.append('stock', formData.stock.toString());
+    form.append('description', formData.description);
+    form.append('details', formData.details);
+    form.append('categoryId', formData.categoryId);
+    form.append('productType', formData.productType);
+    form.append('type', formData.type);
 
-    try {
-      const form = new FormData();
+    // Ensure sizes and variants are sent as valid JSON strings
+    form.append('sizes', formData.sizes.length > 0 ? JSON.stringify(formData.sizes) : '[]');
+    form.append('variants', formData.variants.length > 0 ? JSON.stringify(formData.variants.map(v => ({
+      ...v,
+      imageFiles: undefined, // Exclude File objects from JSON
+    }))) : '[]');
 
-      // Basic product data
-      form.append('name', formData.name);
-      form.append('price', formData.price.toString());
-      form.append('stock', formData.stock.toString());
-      form.append('description', formData.description);
-      form.append('details', formData.details);
-      form.append('categoryId', formData.categoryId);
-      form.append('type', formData.type);
+    // Append deletion arrays with validation
+    const uniqueImagesToDelete = [...new Set(imagesToDelete.filter(id => id && typeof id === 'string'))];
+    uniqueImagesToDelete.forEach(id => form.append('imagesToDelete[]', id));
+    const uniqueDigitalFilesToDelete = [...new Set(digitalFilesToDelete.filter(id => id && typeof id === 'string'))];
+    uniqueDigitalFilesToDelete.forEach(id => form.append('digitalFilesToDelete[]', id));
 
-      // Sizes
-      form.append('sizes', JSON.stringify(formData.sizes));
+    // Append file uploads
+    newImages.forEach(file => form.append('images', file));
+    newDigitalFiles.forEach(file => form.append('digitalFiles', file));
+    variantImages.forEach(file => form.append('variantImages', file));
 
-      // Variants
-      const variantsData = formData.variants.map(variant => ({
-        id: variant.id,
-        color: variant.color,
-        colorCode: variant.colorCode,
-        price: variant.price,
-        imagesToDelete: variant.imagesToDelete || [],
-        existingImages: variant.existingImages || [],
-      }));
-      form.append('variants', JSON.stringify(variantsData));
-
-      // Variant images
-      formData.variants.forEach((variant, variantIndex) => {
-        if (variant.imageFiles && variant.imageFiles.length > 0) {
-          variant.imageFiles.forEach((file) => {
-            form.append('variantImages', file);
-            form.append('variantImageIndexes', variantIndex.toString());
-          });
-        }
-      });
-
-      // Product images
-      imagesToDelete.forEach(id => form.append('imagesToDelete', id));
-      newImages.forEach(file => form.append('images', file));
-
-      const responseData = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
-        method: 'PUT',
-        body: form,
-      });
-
-      setSuccess(true);
-      setTimeout(() => router.push('/admin/products'), 1500);
-    } catch (err: any) {
-      setErrors({ general: err.message || 'Something went wrong' });
-    } finally {
-      setLoading(false);
+    // Log FormData contents for debugging
+    console.log('FormData contents:');
+    for (const [key, value] of form.entries()) {
+      console.log(`${key}:`, value instanceof File ? value.name : value);
     }
+
+    updateMutation.mutate(form);
   };
 
-  if (fetchLoading) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
-  if (success) {
-    return (
-      <div className="flex justify-center items-center h-screen text-green-700">
-        <div className="text-center">
-          <div className="text-2xl font-semibold mb-2">✅ Product updated successfully!</div>
-          <p className="text-sm text-gray-600">Redirecting to products list...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const renderCategoryOptions = (
-    cats: Category[],
-    level = 0
-  ): React.ReactElement[] => {
+  const renderCategoryOptions = (cats: Category[], level = 0): React.ReactElement[] => {
     return cats.flatMap(cat => [
       <option key={cat.id} value={cat.id}>
-        {`${'—'.repeat(level)} ${cat.name}`}
+        {'—'.repeat(level)} {cat.name}
       </option>,
-      ...(cat.subcategories
-        ? renderCategoryOptions(cat.subcategories, level + 1)
-        : []),
+      ...(cat.subcategories ? renderCategoryOptions(cat.subcategories, level + 1) : []),
     ]);
   };
 
+  if (productLoading || categoriesLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white min-h-screen">
-      {/* Header */}
+    <div className="max-w-5xl mx-auto p-6 bg-white min-h-screen">
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => router.push('/admin/products')}
@@ -428,17 +494,11 @@ export default function EditProductPage() {
         <h1 className="text-2xl font-bold text-gray-900">Edit Product</h1>
       </div>
 
-      {errors.general && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {errors.general}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic Information */}
-        <div className="bg-gray-50 p-6 rounded-lg">
+        <div className="bg-gray-50 p-6 rounded-lg shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormInput
               label="Product Name"
               name="name"
@@ -466,8 +526,24 @@ export default function EditProductPage() {
               onChange={handleChange}
               error={errors.stock}
               min="0"
-              required
+              required={formData.productType === 'physical'}
+              disabled={formData.productType === 'digital'}
             />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Product Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="productType"
+                value={formData.productType}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                required
+              >
+                <option value="physical">Physical</option>
+                <option value="digital">Digital</option>
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Category <span className="text-red-500">*</span>
@@ -476,7 +552,7 @@ export default function EditProductPage() {
                 name="categoryId"
                 value={formData.categoryId}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
               >
                 <option value="">Select Category</option>
@@ -484,9 +560,16 @@ export default function EditProductPage() {
               </select>
               {errors.categoryId && <p className="text-sm text-red-600 mt-1">{errors.categoryId}</p>}
             </div>
+            <FormInput
+              label="Type"
+              name="type"
+              value={formData.type}
+              onChange={handleChange}
+              error={errors.type}
+              required
+            />
           </div>
-
-          <div className="mt-4">
+          <div className="mt-6">
             <FormTextarea
               label="Description"
               name="description"
@@ -497,7 +580,7 @@ export default function EditProductPage() {
               required
             />
           </div>
-          <div className="mt-4">
+          <div className="mt-6">
             <FormTextarea
               label="Details"
               name="details"
@@ -508,117 +591,133 @@ export default function EditProductPage() {
               required
             />
           </div>
-          <div className="mt-4">
-            <FormTextarea
-              label="Type"
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              error={errors.type}
-              rows={1}
-              required
-            />
-          </div>
         </div>
 
         {/* Sizes */}
-        <div className="bg-gray-50 p-6 rounded-lg">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Sizes & Stock</h3>
-            <button
-              type="button"
-              onClick={addSize}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
-            >
-              + Add Size
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {formData.sizes.map((size, index) => (
-              <div key={index} className="flex gap-3 items-start">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    placeholder="Size (e.g., XL, L, M)"
+        {formData.productType === 'physical' && (
+          <div className="bg-gray-50 p-6 rounded-lg shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Sizes & Stock</h3>
+              <button
+                type="button"
+                onClick={addSize}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+              >
+                <Plus className="w-4 h-4" /> Add Size
+              </button>
+            </div>
+            <div className="space-y-4">
+              {formData.sizes.map((size, index) => (
+                <div key={index} className="flex gap-4 items-start">
+                  <FormInput
+                    label="Size"
                     value={size.size}
-                    onChange={(e) => updateSize(index, 'size', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSize(index, 'size', e.target.value)}
+                    error={errors[`size_${index}_size`]}
+                    placeholder="e.g., XL, L, M"
                   />
-                  {errors[`size_${index}_size`] && (
-                    <p className="text-sm text-red-600 mt-1">{errors[`size_${index}_size`]}</p>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <input
+                  <FormInput
+                    label="Stock"
                     type="number"
-                    placeholder="Stock"
                     value={size.stock}
-                    onChange={(e) => updateSize(index, 'stock', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSize(index, 'stock', parseInt(e.target.value) || 0)}
+                    error={errors[`size_${index}_stock`]}
                     min="0"
+                    placeholder="Stock quantity"
                   />
-                  {errors[`size_${index}_stock`] && (
-                    <p className="text-sm text-red-600 mt-1">{errors[`size_${index}_stock`]}</p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeSize(index)}
+                    className="mt-7 text-red-600 hover:text-red-800 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removeSize(index)}
-                  className="text-red-600 hover:text-red-800 p-2"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-            {formData.sizes.length === 0 && (
-              <p className="text-gray-500 text-sm">No sizes added. Click "Add Size" to add sizes.</p>
-            )}
+              ))}
+              {formData.sizes.length === 0 && (
+                <p className="text-gray-500 text-sm">No sizes added. Click "Add Size" to add sizes.</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Digital Files */}
+        {formData.productType === 'digital' && (
+          <div className="bg-gray-50 p-6 rounded-lg shadow-sm">
+            <h3 className="text-lg font-semibold mb-4">Digital Files</h3>
+            <div className="mb-4">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.zip,.mp3"
+                onChange={(e) => handleFileChange(e, 'digital')}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              />
+              {errors.digitalFiles && <p className="text-sm text-red-600 mt-1">{errors.digitalFiles}</p>}
+              <p className="text-xs text-gray-500 mt-1">Allowed: PDF, ZIP, MP3. Max 50MB per file.</p>
+            </div>
+            <div className="space-y-3">
+              {existingDigitalFiles.map((file) => (
+                <div key={file.id} className="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                  <span className="text-sm text-gray-700 truncate">{file.fileName}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeExistingDigitalFile(file.id)}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+              {newDigitalFiles.map((file, index) => (
+                <div key={index} className="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                  <span className="text-sm text-gray-700 truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeNewDigitalFile(index)}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Variants */}
-        <div className="bg-gray-50 p-6 rounded-lg">
+        <div className="bg-gray-50 p-6 rounded-lg shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">Color Variants</h3>
             <button
               type="button"
               onClick={addVariant}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+              className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
             >
-              + Add Variant
+              <Plus className="w-4 h-4" /> Add Variant
             </button>
           </div>
-
           <div className="space-y-6">
             {formData.variants.map((variant, index) => (
-              <div key={index} className="border border-gray-200 p-4 rounded-lg bg-white">
-                <div className="flex justify-between items-center mb-3">
+              <div key={index} className="border border-gray-200 p-5 rounded-lg bg-white shadow-sm">
+                <div className="flex justify-between items-center mb-4">
                   <h4 className="font-medium text-gray-800">Variant {index + 1}</h4>
                   <button
                     type="button"
                     onClick={() => removeVariant(index)}
                     className="text-red-600 hover:text-red-800"
                   >
-                    Remove Variant
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Color Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Red, Blue"
-                      value={variant.color}
-                      onChange={(e) => updateVariant(index, 'color', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    {errors[`variant_${index}_color`] && (
-                      <p className="text-sm text-red-600 mt-1">{errors[`variant_${index}_color`]}</p>
-                    )}
-                  </div>
-
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormInput
+                    label="Color Name"
+                    value={variant.color}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateVariant(index, 'color', e.target.value)}
+                    error={errors[`variant_${index}_color`]}
+                    placeholder="e.g., Red, Blue"
+                  />
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Color Code</label>
                     <div className="flex gap-2">
@@ -640,85 +739,18 @@ export default function EditProductPage() {
                       <p className="text-sm text-red-600 mt-1">{errors[`variant_${index}_colorCode`]}</p>
                     )}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Variant Price (₹)</label>
-                    <input
-                      type="number"
-                      value={variant.price}
-                      onChange={(e) => updateVariant(index, 'price', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      min="0"
-                      step="0.01"
-                    />
-                    {errors[`variant_${index}_price`] && (
-                      <p className="text-sm text-red-600 mt-1">{errors[`variant_${index}_price`]}</p>
-                    )}
-                  </div>
+                  <FormInput
+                    label="Variant Price (₹)"
+                    type="number"
+                    value={variant.price}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateVariant(index, 'price', parseFloat(e.target.value) || 0)}
+                    error={errors[`variant_${index}_price`]}
+                    min="0"
+                    step="0.01"
+                  />
                 </div>
-
-                {/* Variant Images */}
-                <div>
+                <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Variant Images</label>
-
-                  {/* Existing Images */}
-                  {variant.existingImages && variant.existingImages.length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-sm text-gray-600 mb-2">Existing Images:</p>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {variant.existingImages.map((img) => (
-                          <div key={img.id} className="relative group">
-                            <Image
-                              src={img.url}
-                              alt="Variant image"
-                              width={80}
-                              height={80}
-                              className="w-full h-20 object-cover rounded-lg"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeVariantImage(index, img.id)}
-                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* New Images Preview */}
-                  {variant.imageFiles && variant.imageFiles.length > 0 && (
-                    <div className="mb-3">
-                      <p className="text-sm text-gray-600 mb-2">New Images to Upload:</p>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                        {variant.imageFiles.map((file, imgIndex) => (
-                          <div key={imgIndex} className="relative group">
-                            <Image
-                              src={URL.createObjectURL(file)}
-                              alt="New variant image"
-                              width={80}
-                              height={80}
-                              className="w-full h-20 object-cover rounded-lg"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeVariantNewImage(index, imgIndex)}
-                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              ✕
-                            </button>
-                            <span className="absolute bottom-1 left-1 bg-green-500 text-white text-xs px-1 rounded">
-                              New
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Upload Input */}
                   <input
                     type="file"
                     accept="image/*"
@@ -729,14 +761,46 @@ export default function EditProductPage() {
                   {errors[`variant_${index}_images`] && (
                     <p className="text-sm text-red-600 mt-1">{errors[`variant_${index}_images`]}</p>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">You can select multiple images. Maximum 5MB per image.</p>
-
-                  {/* Debug info */}
-                  <div className="text-xs text-gray-400 mt-2 p-2 bg-gray-100 rounded">
-                    <strong>Debug:</strong>
-                    Existing: {variant.existingImages?.length || 0} |
-                    New: {variant.imageFiles?.length || 0} |
-                    Total: {(variant.existingImages?.length || 0) + (variant.imageFiles?.length || 0)}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 mt-3">
+                    {variant.images?.map((img) => (
+                      <div key={img.id} className="relative group cursor-pointer">
+                        <Image
+                          src={img.url}
+                          alt="Variant image"
+                          width={80}
+                          height={80}
+                          className="w-full h-20 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeVariantImage(index, img.id)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    {variant.imageFiles?.map((file, imgIndex) => (
+                      <div key={imgIndex} className="relative group cursor-pointer">
+                        <Image
+                          src={URL.createObjectURL(file)}
+                          alt="New variant image"
+                          width={80}
+                          height={80}
+                          className="w-full h-20 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeVariantNewImage(index, imgIndex)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <span className="absolute bottom-1 left-1 bg-green-500 text-white text-xs px-1 rounded">
+                          New
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -748,25 +812,22 @@ export default function EditProductPage() {
         </div>
 
         {/* Product Images */}
-        <div className="bg-gray-50 p-6 rounded-lg">
+        <div className="bg-gray-50 p-6 rounded-lg shadow-sm">
           <h3 className="text-lg font-semibold mb-4">Product Images</h3>
-
           <div className="mb-4">
             <input
               type="file"
               multiple
               accept="image/*"
-              onChange={handleFileChange}
+              onChange={(e) => handleFileChange(e, 'image')}
               className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
             />
             {errors.images && <p className="text-sm text-red-600 mt-1">{errors.images}</p>}
             <p className="text-xs text-gray-500 mt-1">Maximum file size: 5MB per image</p>
           </div>
-
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
-            {/* Existing Images */}
             {existingImages.map((img) => (
-              <div key={img.id} className="relative group">
+              <div key={img.id} className="relative group cursor-pointer">
                 <Image
                   src={img.url}
                   alt="Product image"
@@ -777,19 +838,14 @@ export default function EditProductPage() {
                 <button
                   type="button"
                   onClick={() => removeExistingImage(img.id)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
-                <span className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">
-                  Existing
-                </span>
               </div>
             ))}
-
-            {/* New Images */}
             {newImages.map((file, i) => (
-              <div key={i} className="relative group">
+              <div key={i} className="relative group cursor-pointer">
                 <Image
                   src={URL.createObjectURL(file)}
                   alt="New image"
@@ -800,9 +856,9 @@ export default function EditProductPage() {
                 <button
                   type="button"
                   onClick={() => removeNewImage(i)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
                 <span className="absolute bottom-1 left-1 bg-green-500 text-white text-xs px-1 rounded">
                   New
@@ -823,11 +879,11 @@ export default function EditProductPage() {
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={updateMutation.isPending}
             className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
-            {loading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
-            {loading ? 'Updating Product...' : 'Update Product'}
+            {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+            {updateMutation.isPending ? 'Updating Product...' : 'Update Product'}
           </button>
         </div>
       </form>
@@ -835,7 +891,20 @@ export default function EditProductPage() {
   );
 }
 
-// Reusable Form Components
+interface FormInputProps {
+  label: string;
+  name?: string;
+  value: string | number;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  error?: string;
+  type?: 'text' | 'number';
+  required?: boolean;
+  placeholder?: string;
+  min?: string | number;
+  step?: string | number;
+  disabled?: boolean;
+}
+
 function FormInput({
   label,
   name,
@@ -844,8 +913,11 @@ function FormInput({
   error,
   type = 'text',
   required = false,
-  ...props
-}: any) {
+  placeholder,
+  min,
+  step,
+  disabled,
+}: FormInputProps) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -856,23 +928,28 @@ function FormInput({
         name={name}
         value={value}
         onChange={onChange}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        {...props}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        placeholder={placeholder}
+        min={min}
+        step={step}
+        disabled={disabled}
       />
       {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
     </div>
   );
 }
 
-function FormTextarea({
-  label,
-  name,
-  value,
-  onChange,
-  error,
-  required = false,
-  ...props
-}: any) {
+interface FormTextareaProps {
+  label: string;
+  name?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  error?: string;
+  required?: boolean;
+  rows?: number;
+}
+
+function FormTextarea({ label, name, value, onChange, error, required = false, rows = 4 }: FormTextareaProps) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -882,8 +959,8 @@ function FormTextarea({
         name={name}
         value={value}
         onChange={onChange}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-vertical"
-        {...props}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-vertical"
+        rows={rows}
       />
       {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
     </div>

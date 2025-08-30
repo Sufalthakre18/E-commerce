@@ -1,3 +1,4 @@
+// src/store/cart.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
@@ -7,28 +8,27 @@ export type CartItem = {
   price: number;
   quantity: number;
   image: string;
-  sizeId: string | null;     
-  sizeLabel: string;         
-  variantId: string ;
-  color: string; 
+  sizeId: string | null;
+  sizeLabel: string;
+  variantId: string;
+  color: string;
+  productType: 'physical' | 'digital'; // New field
 };
 
 type CartStore = {
   items: CartItem[];
-
   addToCart: (item: CartItem) => void;
   removeFromCart: (id: string, sizeId: string | null) => void;
   clearCart: () => void;
   updateQuantity: (id: string, sizeId: string | null, quantity: number) => void;
-
   totalItems: () => number;
   totalPrice: () => number;
-
   getCartSnapshot: () => {
     items: CartItem[];
     totalItems: number;
     totalPrice: number;
   };
+  isDigitalOnly: () => boolean; // New helper
 };
 
 export const useCartStore = create<CartStore>()(
@@ -92,6 +92,8 @@ export const useCartStore = create<CartStore>()(
           totalPrice: get().totalPrice(),
         };
       },
+
+      isDigitalOnly: () => get().items.every((item) => item.productType === 'digital'), // New method
     }),
     {
       name: 'cart-storage',

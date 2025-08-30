@@ -7,15 +7,49 @@ interface PageProps {
 }
 
 async function getProduct(id: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`);
-  if (!res.ok) throw new Error("Failed to fetch product");
-  return res.json();
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch product: ${res.status} ${res.statusText}`);
+    }
+    const response = await res.json();
+    // Extract the product from the { success, data } wrapper
+    if (!response.success || !response.data) {
+      throw new Error("Invalid response format or product not found");
+    }
+    return response.data; // Return the product object
+  } catch (error) {
+    console.error("Error fetching product:", error);
+    throw error;
+  }
 }
 
 export default async function ProductPage({ params }: PageProps) {
-  // Await the params before accessing its properties
   const { id } = await params;
-  const product = await getProduct(id);
+  let product = null;
+
+  try {
+    product = await getProduct(id);
+  } catch (error) {
+    console.error("ProductPage error:", error);
+    return (
+      <main className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+            <span className="text-red-500 text-2xl">!</span>
+          </div>
+          <h2 className="text-2xl font-light text-gray-900">Unable to Load Product</h2>
+          <p className="text-gray-600">We couldn't fetch the product details. Please try again later.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-black text-white px-6 py-2 rounded-lg hover:bg-gray-900 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-white">

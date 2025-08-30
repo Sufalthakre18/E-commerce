@@ -1,4 +1,4 @@
-
+// src/components/CheckoutForm.tsx
 'use client';
 
 import { useCartStore } from '@/store/cart';
@@ -11,7 +11,7 @@ import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import { loadRazorpay } from '@/lib/utils/loadRazorpay';
 import { toast } from 'sonner';
 import { Cinzel, Source_Sans_3 } from 'next/font/google';
-import { Truck, CreditCard, Package } from 'lucide-react';
+import { Truck, CreditCard, Package, Download } from 'lucide-react';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'] });
 const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
@@ -39,27 +39,32 @@ type Address = {
 };
 
 export function CheckoutForm() {
-  const { items, totalPrice, clearCart } = useCartStore();
+  const { items, totalPrice, clearCart, isDigitalOnly } = useCartStore();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedPromotion | null>(null);
   const [couponError, setCouponError] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
-  const [isClient, setIsClient] = useState(false); // Track client-side rendering
+  const [isClient, setIsClient] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm<CheckoutFormType>({
     resolver: zodResolver(checkoutSchema),
+    defaultValues: { paymentMethod: 'razorpay' }, // Default to Razorpay
   });
 
-  // Set isClient to true after mounting
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    // Disable COD for digital products
+    if (isDigitalOnly()) {
+      setValue('paymentMethod', 'razorpay');
+    }
+  }, [isDigitalOnly, setValue]);
 
   const calculateFinalTotal = useMemo(() => {
     const subtotal = totalPrice();
@@ -106,14 +111,14 @@ export function CheckoutForm() {
       return;
     }
 
-    if (!selectedAddress) {
-      toast.error('Please select a delivery address.');
+    if (!isDigitalOnly() && !selectedAddress) {
+      toast.error('Please select a delivery address for physical products.');
       return;
     }
 
     setIsLoading(true);
     const commonPayload = {
-      addressId: selectedAddress.id,
+      addressId: isDigitalOnly() ? null : selectedAddress?.id, // Send null for digital-only
       items: items.map((item) => ({
         productId: item.id,
         quantity: item.quantity,
@@ -167,7 +172,11 @@ export function CheckoutForm() {
                 }),
               });
 
-              toast.success('Payment successful!');
+              if (razorData.downloadLinks?.length > 0) {
+                toast.success('Payment successful! Download links are available in your order details.');
+              } else {
+                toast.success('Payment successful!');
+              }
               clearCart();
               window.location.href = '/thank-you';
             } catch (err: any) {
@@ -204,15 +213,17 @@ export function CheckoutForm() {
         </h1>
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
-            <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-              <div className="flex items-center space-x-3 mb-6">
-                <Truck className="w-6 h-6 text-gray-700" />
-                <h2 className={`${cinzel.className} text-xl font-semibold text-gray-900`}>
-                  Shipping Information
-                </h2>
-              </div>
-              <CheckoutAddressSection onSelectAddress={setSelectedAddress} />
-            </section>
+            {!isDigitalOnly() && ( // Hide address section for digital-only orders
+              <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <div className="flex items-center space-x-3 mb-6">
+                  <Truck className="w-6 h-6 text-gray-700" />
+                  <h2 className={`${cinzel.className} text-xl font-semibold text-gray-900`}>
+                    Shipping Information
+                  </h2>
+                </div>
+                <CheckoutAddressSection onSelectAddress={setSelectedAddress} />
+              </section>
+            )}
 
             <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <div className="flex items-center space-x-3 mb-6">
@@ -264,20 +275,28 @@ export function CheckoutForm() {
                       Razorpay (UPI, Cards, Netbanking)
                     </span>
                   </label>
-                  <label className="flex items-center gap-3 bg-gray-50 p-4 rounded-lg border border-gray-200 cursor-pointer transition-colors">
-                    <input
-                      type="radio"
-                      value="COD"
-                      {...register('paymentMethod')}
-                      className="h-4 w-4 text-black border-gray-300 focus:ring-black"
-                    />
-                    <span className={`${sourceSansPro.className} text-sm text-gray-700`}>
-                      Cash on Delivery
-                    </span>
-                  </label>
+                  {!isDigitalOnly() && ( // Hide COD for digital products
+                    <label className="flex items-center gap-3 bg-gray-50 p-4 rounded-lg border border-gray-200 cursor-pointer transition-colors">
+                      <input
+                        type="radio"
+                        value="COD"
+                        {...register('paymentMethod')}
+                        className="h-4 w-4 text-black border-gray-300 focus:ring-black"
+                      />
+                      <span className={`${sourceSansPro.className} text-sm text-gray-700`}>
+                        Cash on Delivery
+                      </span>
+                    </label>
+                  )}
                 </div>
                 {errors.paymentMethod && (
                   <p className="text-red-500 text-xs mt-2">{errors.paymentMethod.message}</p>
+                )}
+                {isDigitalOnly() && (
+                  <p className={`${sourceSansPro.className} text-sm text-gray-500 mt-2`}>
+                    <Download className="w-4 h-4 inline-block mr-1" />
+                    Digital products will be available for download after payment.
+                  </p>
                 )}
               </div>
             </section>
@@ -292,7 +311,6 @@ export function CheckoutForm() {
                 </h2>
               </div>
 
-              {/* Render order summary only on client */}
               {isClient ? (
                 <div className="space-y-4 mb-6">
                   {items.length === 0 ? (
@@ -321,11 +339,13 @@ export function CheckoutForm() {
                                 ₹{(item.price * item.quantity).toFixed(2)}
                               </span>
                             </div>
+                            {item.productType === 'physical' && item.sizeLabel && (
+                              <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
+                                Size: {item.sizeLabel}
+                              </p>
+                            )}
                             <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
-                              Size: {item.sizeLabel}
-                            </p>
-                            <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
-                              Color: {item.color}
+                              {item.productType === 'digital' ? 'Digital' : 'Physical'}
                             </p>
                             <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
                               Quantity: {item.quantity}
@@ -378,7 +398,6 @@ export function CheckoutForm() {
                 )}
               </div>
 
-              {/* Render totals only on client */}
               {isClient ? (
                 <div className="space-y-3 text-gray-700">
                   <div className="flex justify-between">

@@ -5,20 +5,17 @@ import { deleteFromCloudinary, uploadOnCloudinary } from "../lib/cloudinary";
 export const productService = {
   // Used by admin to create a product
   async create(data: any) {
-    const { name, description, price, stock, category, categoryId, images, sizes, variants, type,details } = data;
+    const { name, description, price, stock, category, categoryId, images, sizes, variants, productType, type, details, digitalFiles } = data;
 
     let connectedCategory;
-
     if (categoryId) {
       connectedCategory = await prisma.category.findUnique({ where: { id: categoryId } });
-      if (!connectedCategory) {
-        throw new Error(`category id "${categoryId}" not found`);
-      }
+      if (!connectedCategory) throw new Error(`Category id "${categoryId}" not found`);
     } else if (category) {
       connectedCategory = await prisma.category.findUnique({ where: { name: category } });
-      if (!connectedCategory) throw new Error(`category "${category}" not found`);
+      if (!connectedCategory) throw new Error(`Category "${category}" not found`);
     } else {
-      throw new Error("category name is required");
+      throw new Error("Category name or ID is required");
     }
 
     const imageObjects = images?.map(({ url, publicId }: any) => ({
@@ -31,67 +28,65 @@ export const productService = {
       try {
         parsedSizes = typeof sizes === 'string' ? JSON.parse(sizes) : sizes;
       } catch (err) {
-        console.warn("failed to parse sizes:", err);
+        console.warn("Failed to parse sizes:", err);
       }
     }
 
-    let parsedVariants: { color: string; colorCode?: string; stock: number; price?: number; images: any[] }[] = [];
+    let parsedVariants: { color: string; colorCode?: string; stock?: number; price?: number; images: any[] }[] = [];
     if (variants) {
       try {
         parsedVariants = typeof variants === 'string' ? JSON.parse(variants) : variants;
       } catch (err) {
-        console.warn("failed to parse variants:", err);
+        console.warn("Failed to parse variants:", err);
       }
     }
 
-    return prisma.product.create({
-      data: {
-        name,
-        description,
-        details: details || null,
-        price: parseFloat(price),
-        stock: parseInt(stock),
-        type,
-        category: {
-          connect: { id: connectedCategory.id },
+    return prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          name,
+          description,
+          details: details || null,
+          price: parseFloat(price),
+          stock: productType === 'digital' ? 9 : parseInt(stock), // Infinite for digital
+          productType,
+          type: type || null,
+          category: { connect: { id: connectedCategory.id } },
+          images: { create: imageObjects },
+          sizes: parsedSizes.length ? {
+            create: parsedSizes.map((s) => ({ size: s.size, stock: s.stock })),
+          } : undefined,
+          variants: parsedVariants.length ? {
+            create: parsedVariants.map((v) => ({
+              color: v.color,
+              colorCode: v.colorCode,
+              price: v.price,
+              images: v.images?.length ? {
+                create: v.images.map((img: any) => ({
+                  url: img.url,
+                  publicId: img.publicId,
+                })),
+              } : undefined,
+            })),
+          } : undefined,
+          digitalFiles: productType === 'digital' && digitalFiles?.length ? {
+            create: digitalFiles.map((f: any) => ({
+              url: f.url,
+              publicId: f.publicId,
+              fileName: f.fileName,
+            })),
+          } : undefined,
         },
-        images: {
-          create: imageObjects,
+        include: {
+          category: true,
+          images: true,
+          sizes: true,
+          variants: { include: { images: true } },
+          digitalFiles: true,
         },
-        sizes: parsedSizes.length ? {
-          create: parsedSizes.map((s) => ({
-            size: s.size,
-            stock: s.stock,
-          })),
-        } : undefined,
-        variants: parsedVariants.length ? {
-          create: parsedVariants.map((v) => ({
-            color: v.color,
-            colorCode: v.colorCode,
-            //   stock: v.stock,
-            price: v.price,
-            images: v.images?.length ? {
-              create: v.images.map((img: any) => ({
-                url: img.url,
-                publicId: img.publicId,
-              })),
-            } : undefined,
-          })),
-        } : undefined,
-      },
-      include: {
-        category: true,
-        images: true,
-        sizes: true,
-        variants: {
-          include: {
-            images: true,
-          },
-        },
-      },
+      });
+      return product;
     });
-
-
   },
   async getAllPaginated(filters: {
     page?: number;
@@ -102,6 +97,7 @@ export const productService = {
     maxPrice?: number;
     mainCategory?: string;
     subCategory?: string;
+    productType?: string;
     type?: string;
   }) {
     const {
@@ -113,26 +109,23 @@ export const productService = {
       maxPrice,
       mainCategory,
       subCategory,
+      productType,
       type
     } = filters;
 
     const skip = (page - 1) * limit;
     const where: any = {
+      ...(productType ? { productType } : {}),
       ...(type ? { type } : {}),
       category: {
         name: subCategory,
-        parent: {
-          name: mainCategory,
-        },
+        parent: { name: mainCategory },
       },
     };
 
     if (categoryId) where.categoryId = categoryId;
     if (search) {
-      where.name = {
-        contains: search,
-        mode: "insensitive",
-      };
+      where.name = { contains: search, mode: "insensitive" };
     }
     if (minPrice || maxPrice) {
       where.price = {};
@@ -145,15 +138,17 @@ export const productService = {
         where,
         skip,
         take: limit,
-        include: { images: true, category: { include: { parent: true } },variants: { include: { images: true } } },
+        include: {
+          images: true,
+          category: { include: { parent: true } },
+          variants: { include: { images: true } },
+          digitalFiles: true,
+        },
         orderBy: { createdAt: "desc" },
       }),
       prisma.product.count({ where }),
     ]);
 
-    if (type) {
-      where.type = type;
-    }
     return {
       products,
       total,
@@ -182,6 +177,7 @@ export const productService = {
         include: {
           images: true,
           category: true,
+          digitalFiles: true, // Include for listings
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -190,11 +186,7 @@ export const productService = {
 
     return {
       data: products,
-      pagination: {
-        total,
-        page,
-        pages: Math.ceil(total / limit),
-      },
+      pagination: { total, page, pages: Math.ceil(total / limit) },
     };
   },
 
@@ -205,326 +197,348 @@ export const productService = {
         images: true,
         category: true,
         sizes: true,
-        variants: {
-          include: {
-            images: true
-          }
-        }
+        variants: { include: { images: true } },
+        digitalFiles: true, // Include for details
       },
     });
 
     if (!product) throw new Error("Product not found");
-
     return product;
   }, // Used by user to get product by ID
-async update(id: string, data: any) {
-  const {
-    name,
-    description,
-    details,
-    price,
-    stock,
-    category,
-    type,
-    images,
-    imagesToDelete,
-    sizes,
-    variants,
-  } = data;
+ async update(id: string, data: any) {
+    const {
+      name,
+      description,
+      details,
+      price,
+      stock,
+      categoryId,
+      productType,
+      type,
+      images,
+      imagesToDelete,
+      digitalFiles,
+      digitalFilesToDelete,
+      sizes,
+      variants,
+    } = data;
 
-  return prisma.$transaction(async (tx: any) => {
-
-    let categoryConnect = undefined;
-
-    if (category) {
-      const existingCategory = await tx.category.findUnique({
-        where: { name: category },
+    return prisma.$transaction(async (tx) => {
+      // Validate product existence
+      const existingProduct = await tx.product.findUnique({
+        where: { id },
+        include: { images: true, digitalFiles: true, sizes: true, variants: { include: { images: true } } },
       });
+      if (!existingProduct) throw new Error("Product not found");
 
-      if (!existingCategory) {
-        throw new Error(`Category "${category}" does not exist`);
+      // Validate category
+      if (categoryId) {
+        const category = await tx.category.findUnique({ where: { id: categoryId } });
+        if (!category) throw new Error(`Category id "${categoryId}" not found`);
       }
 
-      categoryConnect = { connect: { name: category } };
-    }
-
-    if (imagesToDelete?.length) {
-      const toDelete = await tx.productImage.findMany({
-        where: { id: { in: imagesToDelete }, productId: id },
-      });
-
-      await Promise.all(
-        toDelete
-          .filter((img: any) => img.publicId)
-          .map((img: any) => deleteFromCloudinary(img.publicId!))
-      );
-
-      await tx.productImage.deleteMany({
-        where: { id: { in: imagesToDelete }, productId: id },
-      });
-    }
-
-    if (images?.length) {
-      await tx.productImage.createMany({
-        data: images.map(({ url, publicId }: any) => ({
-          url,
-          publicId,
-          productId: id,
-        })),
-      });
-    }
-
-    let parsedSizes = null;
-    if (sizes) {
-      try {
-        parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes;
-     
-        if (!Array.isArray(parsedSizes)) {
-          parsedSizes = null;
-        }
-      } catch (err) {
-        console.warn("failed to parse sizes:", err);
-        parsedSizes = null;
+      // Handle image deletions
+      if (imagesToDelete?.length) {
+        const toDelete = await tx.productImage.findMany({
+          where: { id: { in: imagesToDelete }, productId: id },
+        });
+        await Promise.all(
+          toDelete
+            .filter((img) => img.publicId)
+            .map((img) => deleteFromCloudinary(img.publicId!, "image"))
+        );
+        await tx.productImage.deleteMany({
+          where: { id: { in: imagesToDelete }, productId: id },
+        });
       }
-    }
 
-    if (parsedSizes?.length) {
-      await tx.productSize.deleteMany({ where: { productId: id } });
-      await tx.productSize.createMany({
-        data: parsedSizes.map((s: any) => ({
-          size: s.size,
-          stock: s.stock,
-          productId: id,
-        })),
-      });
-    }
+      // Handle digital file deletions
+      if (digitalFilesToDelete?.length) {
+        const toDelete = await tx.digitalFile.findMany({
+          where: { id: { in: digitalFilesToDelete }, productId: id },
+        });
+        await Promise.all(
+          toDelete
+            .filter((file) => file.publicId)
+            .map((file) => deleteFromCloudinary(file.publicId, file.url.endsWith(".mp4") ? "video" : "raw"))
+        );
+        await tx.digitalFile.deleteMany({
+          where: { id: { in: digitalFilesToDelete }, productId: id },
+        });
+      }
 
-    if (variants?.length) {
-      for (const variant of variants) {
-        if (variant.id) {
-          await tx.productVariant.update({
-            where: { id: variant.id },
-            data: {
-              color: variant.color,
-              colorCode: variant.colorCode,
-              price: variant.price ?? null,
-            },
-          });
+      // Handle new images
+      if (images?.length) {
+        await tx.productImage.createMany({
+          data: images.map(({ url, publicId }: any) => ({
+            url,
+            publicId,
+            productId: id,
+          })),
+        });
+      }
 
-          if (variant.imagesToDelete?.length) {
-            const imagesToDelete = await tx.productVariantImage.findMany({
-              where: { 
-                id: { in: variant.imagesToDelete },
-                variantId: variant.id 
+      // Handle new digital files
+      if (digitalFiles?.length) {
+        await tx.digitalFile.createMany({
+          data: digitalFiles.map(({ url, publicId, fileName }: any) => ({
+            url,
+            publicId,
+            fileName,
+            productId: id,
+          })),
+        });
+      }
+
+      // Handle sizes
+      if (sizes?.length) {
+        await tx.productSize.deleteMany({ where: { productId: id } });
+        await tx.productSize.createMany({
+          data: sizes.map((s: any) => ({
+            size: s.size,
+            stock: s.stock,
+            productId: id,
+          })),
+        });
+      }
+
+      // Handle variants
+      if (variants?.length) {
+        for (const variant of variants) {
+          if (variant.id) {
+            // Update existing variant
+            await tx.productVariant.update({
+              where: { id: variant.id },
+              data: {
+                color: variant.color,
+                colorCode: variant.colorCode,
+                price: variant.price ?? null,
               },
             });
 
+            // Delete variant images
+            if (variant.imagesToDelete?.length) {
+              const imagesToDelete = await tx.productVariantImage.findMany({
+                where: { id: { in: variant.imagesToDelete }, variantId: variant.id },
+              });
+              await Promise.all(
+                imagesToDelete
+                  .filter((img) => img.publicId)
+                  .map((img) => deleteFromCloudinary(img.publicId!, "image"))
+              );
+              await tx.productVariantImage.deleteMany({
+                where: { id: { in: variant.imagesToDelete }, variantId: variant.id },
+              });
+            }
+
+            // Add new variant images
+            if (variant.newImages?.length) {
+              await tx.productVariantImage.createMany({
+                data: variant.newImages.map((img: any) => ({
+                  url: img.url,
+                  publicId: img.publicId,
+                  variantId: variant.id,
+                })),
+              });
+            }
+          } else {
+            // Create new variant
+            const createdVariant = await tx.productVariant.create({
+              data: {
+                color: variant.color,
+                colorCode: variant.colorCode,
+                price: variant.price ?? null,
+                productId: id,
+              },
+            });
+
+            if (variant.newImages?.length) {
+              await tx.productVariantImage.createMany({
+                data: variant.newImages.map((img: any) => ({
+                  url: img.url,
+                  publicId: img.publicId,
+                  variantId: createdVariant.id,
+                })),
+              });
+            }
+          }
+        }
+
+        // Delete variants not included in the update
+        const variantIds = variants.filter((v: any) => v.id).map((v: any) => v.id);
+        if (variantIds.length > 0) {
+          const existingVariants = await tx.productVariant.findMany({
+            where: { productId: id },
+            include: { images: true },
+          });
+          const variantsToDelete = existingVariants.filter((v) => !variantIds.includes(v.id));
+          if (variantsToDelete.length) {
             await Promise.all(
-              imagesToDelete.map((img: any) =>
-                img.publicId ? deleteFromCloudinary(img.publicId) : null
+              variantsToDelete.flatMap((v) =>
+                v.images
+                  .filter((img) => img.publicId)
+                  .map((img) => deleteFromCloudinary(img.publicId!, "image"))
               )
             );
-
             await tx.productVariantImage.deleteMany({
-              where: { 
-                id: { in: variant.imagesToDelete },
-                variantId: variant.id 
-              },
+              where: { variantId: { in: variantsToDelete.map((v) => v.id) } },
             });
-          }
-
-          if (variant.newImages?.length) {
-            await tx.productVariantImage.createMany({
-              data: variant.newImages.map((img: any) => ({
-                url: img.url,
-                publicId: img.publicId,
-                variantId: variant.id,
-              })),
-            });
-          }
-        } else {
-          const created = await tx.productVariant.create({
-            data: {
-              color: variant.color,
-              colorCode: variant.colorCode,
-              price: variant.price ?? null,
-              productId: id,
-            },
-          });
-
-          if (variant.newImages?.length) {
-            await tx.productVariantImage.createMany({
-              data: variant.newImages.map((img: any) => ({
-                url: img.url,
-                publicId: img.publicId,
-                variantId: created.id,
-              })),
+            await tx.productVariant.deleteMany({
+              where: { id: { in: variantsToDelete.map((v) => v.id) } },
             });
           }
         }
       }
 
-      const variantIds = variants.filter((v: any) => v.id).map((v: any) => v.id);
-      if (variantIds.length > 0) {
-        const existingVariants = await tx.productVariant.findMany({
-          where: { productId: id },
-          include: { images: true },
-        });
+      // Update product
+      const dataToUpdate = {
+        name,
+        description,
+        details,
+        price,
+        stock: productType === "digital" ? 999999 : stock,
+        productType,
+        type,
+        category: categoryId ? { connect: { id: categoryId } } : undefined,
+      };
 
-        const variantsToDelete = existingVariants.filter(
-          (existing: any) => !variantIds.includes(existing.id)
+      return tx.product.update({
+        where: { id },
+        data: dataToUpdate,
+        include: {
+          category: true,
+          images: true,
+          sizes: true,
+          variants: { include: { images: true } },
+          digitalFiles: true,
+        },
+      });
+    });
+  },
+  
+  async delete(id: string) {
+    try {
+      const product = await prisma.product.findUnique({
+        where: { id },
+        include: {
+          images: true,
+          variants: { include: { images: true } },
+          digitalFiles: true,
+        },
+      });
+
+      if (!product) throw new Error("Product not found");
+
+      const productImagePublicIds = product.images
+        .filter(img => img.publicId)
+        .map(img => ({ publicId: img.publicId!, resourceType: 'image' as const }));
+
+      const variantImagePublicIds = product.variants
+        .flatMap(variant => variant.images)
+        .filter(img => img.publicId)
+        .map(img => ({ publicId: img.publicId!, resourceType: 'image' as const }));
+
+      const digitalPublicIds = product.digitalFiles
+        .filter(f => f.publicId)
+        .map(f => ({ publicId: f.publicId!, resourceType: 'raw' as const }));
+
+      const allPublicIds = [...productImagePublicIds, ...variantImagePublicIds, ...digitalPublicIds];
+
+      console.log(`Deleting product ${id} with ${allPublicIds.length} Cloudinary assets:`, allPublicIds);
+
+      await prisma.$transaction(async (tx) => {
+        try {
+          await tx.productVariantImage.deleteMany({
+            where: { variantId: { in: product.variants.map(v => v.id) } },
+          });
+          console.log(`Deleted productVariantImages for product ${id}`);
+
+          await tx.orderItem.deleteMany({
+            where: { variantId: { in: product.variants.map(v => v.id) } },
+          });
+          console.log(`Deleted orderItems for product ${id}`);
+
+          await tx.productVariant.deleteMany({ where: { productId: id } });
+          console.log(`Deleted productVariants for product ${id}`);
+
+          await tx.productImage.deleteMany({ where: { productId: id } });
+          console.log(`Deleted productImages for product ${id}`);
+
+          await tx.productSize.deleteMany({ where: { productId: id } });
+          console.log(`Deleted productSizes for product ${id}`);
+
+          await tx.digitalFile.deleteMany({ where: { productId: id } });
+          console.log(`Deleted digitalFiles for product ${id}`);
+
+          
+          await tx.orderItem.deleteMany({ where: { productId: id } });
+          console.log(`Deleted additional orderItems for product ${id}`);
+
+          await tx.review.deleteMany({ where: { productId: id } });
+          console.log(`Deleted reviews for product ${id}`);
+
+          await tx.product.delete({ where: { id } });
+          console.log(`Deleted product ${id}`);
+        } catch (txError) {
+          console.error(`Transaction error for product ${id}:`, txError);
+          throw txError;
+        }
+      });
+
+      if (allPublicIds.length > 0) {
+        console.log(`Deleting ${allPublicIds.length} Cloudinary assets`);
+        const results = await Promise.allSettled(
+          allPublicIds.map(({ publicId, resourceType }) => deleteFromCloudinary(publicId, resourceType))
         );
 
-        if (variantsToDelete.length > 0) {
-          await Promise.all(
-            variantsToDelete.flatMap((variant: any) =>
-              variant.images.map((img: any) =>
-                img.publicId ? deleteFromCloudinary(img.publicId) : null
-              )
-            )
-          );
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            console.error(`Failed to delete Cloudinary asset: public_id=${allPublicIds[index].publicId}, resource_type=${allPublicIds[index].resourceType}, reason:`, result.reason);
+          }
+        });
 
-          await tx.productVariantImage.deleteMany({
-            where: { variantId: { in: variantsToDelete.map((v: any) => v.id) } },
-          });
-
-          await tx.productVariant.deleteMany({
-            where: { id: { in: variantsToDelete.map((v: any) => v.id) } },
-          });
+        // Throw an error if any deletion failed
+        if (results.some(result => result.status === 'rejected')) {
+          throw new Error('Some Cloudinary assets failed to delete');
         }
       }
+
+      return { message: "Product and all related data deleted successfully" };
+    } catch (err) {
+      console.error(`Error in productService.delete for product ${id}:`, err);
+      throw err;
     }
+  },
 
-    const dataToUpdate: any = {};
-    if (name !== undefined) dataToUpdate.name = name;
-    if (description !== undefined) dataToUpdate.description = description;
-    if (details !== undefined) dataToUpdate.details = details;
-    if (price !== undefined) dataToUpdate.price = parseFloat(price);
-    if (stock !== undefined) dataToUpdate.stock = parseInt(stock);
-    if (type !== undefined) dataToUpdate.type = type;
-    if (categoryConnect) dataToUpdate.category = categoryConnect;
-    
-    return tx.product.update({
-      where: { id },
-      data: dataToUpdate,
-      include: {
-        category: true,
-        images: true,
-        sizes: true,
-        variants: {
-          include: { images: true },
-        },
-      },
-    });
-  });
-}
-  , // used by admin to update a product by ID
-
-  async delete(id: string) {
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        images: true,
-        variants: {
-          include: {
-            images: true
-          }
-        }
-      }
-    });
-
-    if (!product) {
-      throw new Error("Product not found");
-    }
-
-    const productImagePublicIds = product.images
-      .filter(img => img.publicId)
-      .map(img => img.publicId!);
-
-    const variantImagePublicIds = product.variants
-      .flatMap(variant => variant.images)
-      .filter(img => img.publicId)
-      .map(img => img.publicId!);
-
-    const allPublicIds = [...productImagePublicIds, ...variantImagePublicIds];
-
-    await prisma.$transaction(async (tx: any) => {
-
-
-
-      await tx.productVariantImage.deleteMany({
-        where: {
-          variantId: {
-            in: product.variants.map(v => v.id)
-          }
-        }
-      });
-
-
-      await tx.orderItem.deleteMany({
-        where: {
-          variantId: {
-            in: product.variants.map(v => v.id)
-          }
-        }
-      });
-
-
-      await tx.productVariant.deleteMany({ where: { productId: id } });
-
-      await tx.productImage.deleteMany({ where: { productId: id } });
-      await tx.productSize.deleteMany({ where: { productId: id } });
-      await tx.cartItem.deleteMany({ where: { productId: id } });
-
-
-      await tx.orderItem.deleteMany({ where: { productId: id } });
-      await tx.review.deleteMany({ where: { productId: id } });
-      await tx.product.delete({ where: { id } });
-    });
-    if (allPublicIds.length > 0) {
-      await Promise.allSettled(
-        allPublicIds.map(publicId => deleteFromCloudinary(publicId))
-      );
-    }
-
-    return { message: "Product and all related data deleted successfully" };
-  }
-  , // used by admin to delete a product by ID
+  // used by admin to delete a product by ID
   async deleteProductsByCategory(categoryId: string) {
-
     const products = await prisma.product.findMany({
       where: { categoryId },
-      include: { images: true },
+      include: { images: true, digitalFiles: true },
     });
 
-    if (products.length === 0) {
-      throw new Error("No products found for this category");
-    }
+    if (products.length === 0) throw new Error("No products found for this category");
 
-    // delete all related images from Cloudinary
     for (const product of products) {
-      for (const image of product.images) {
-        if (image.publicId) {
-          await deleteFromCloudinary(image.publicId);
-        }
-      }
-
-      await prisma.productImage.deleteMany({
-        where: { productId: product.id },
-      });
+      const publicIds = [
+        ...product.images.filter(img => img.publicId).map(img => img.publicId!),
+        ...product.digitalFiles.filter(f => f.publicId).map(f => f.publicId!),
+      ];
+      await Promise.allSettled(
+        publicIds.map(publicId => deleteFromCloudinary(publicId))
+      );
+      await prisma.productImage.deleteMany({ where: { productId: product.id } });
+      await prisma.digitalFile.deleteMany({ where: { productId: product.id } });
     }
 
-    await prisma.product.deleteMany({
-      where: { categoryId },
-    });
+    await prisma.product.deleteMany({ where: { categoryId } });
 
-    return { message: `Deleted ${products.length} products from category ` };
+    return { message: `Deleted ${products.length} products from category` };
   }, // Used by admin to delete all products in a category 
   async getFilteredProducts({
     search,
     categoryId,
     inStockOnly,
-
   }: {
     search?: string;
     categoryId?: string;
@@ -536,7 +550,7 @@ async update(id: string, data: any) {
         categoryId: categoryId || undefined,
         stock: inStockOnly ? { gt: 0 } : undefined,
       },
-      include: { category: true, images: true, sizes: true },
+      include: { category: true, images: true, sizes: true, digitalFiles: true },
       orderBy: { createdAt: "desc" },
     });
   } // Used by user/admin to get all products with filters

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getAuthToken } from '@/lib/utils/auth';
-import { Package, Plus,  Search, Filter, TrendingUp, AlertCircle } from 'lucide-react';
+import { Package, Plus, Search, Filter, TrendingUp, AlertCircle } from 'lucide-react';
 import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 type Product = {
@@ -24,6 +24,11 @@ type Product = {
   }[];
 };
 
+// Define expected API response type
+type ApiResponse =
+  | { success: true; data: Product[] }
+  | { products: Product[]; total: number; page: number; limit: number };
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,41 +38,37 @@ export default function AdminProductsPage() {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
   useEffect(() => {
-  setLoading(true);
-  fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products`)
-    .then(data => {
-      setProducts(data || []);
-      setLoading(false);
-    })
-    .catch(() => setLoading(false));
-}, []);
-
+    setLoading(true);
+    fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products`)
+      .then((data: ApiResponse) => {
+        // Extract products array from response
+        const productArray = 'data' in data ? data.data : 'products' in data ? data.products : [];
+        setProducts(Array.isArray(productArray) ? productArray : []);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch products:', err);
+        setProducts([]);
+        setLoading(false);
+      });
+  }, []);
 
   async function handleDelete(id: string) {
-  if (!confirm('Are you sure you want to delete this product? This will permanently delete the product, its variants, images, and all related data.')) return;
-  
-  setDeleteLoading(id);
-  try {
-   const response = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
-  method: 'DELETE',
-});
+    if (!confirm('Are you sure you want to delete this product? This will permanently delete the product, its variants, images, and all related data.')) return;
 
-
-  
-
-    setProducts(prev => prev.filter(p => p.id !== id));
-    
-    // Optional: Show success message
-    console.log('Product deleted successfully');
-    
-  } catch (err) {
-    console.error('Delete failed:', err);
-    // Optional: Show error message to user
-    alert(`Failed to delete product: ${err instanceof Error ? err.message : 'Unknown error'}`);
-  } finally {
-    setDeleteLoading(null);
+    setDeleteLoading(id);
+    try {
+      await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
+        method: 'DELETE',
+      });
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert(`Failed to delete product: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setDeleteLoading(null);
+    }
   }
-}
 
   const filteredProducts = products.filter(product => {
     const matchesSearch =
@@ -114,7 +115,6 @@ export default function AdminProductsPage() {
             </Link>
           </div>
 
-       
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mt-4 sm:mt-6">
             <StatsCard icon={<Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />} label="Total Products" value={products.length} color="from-blue-500 to-blue-600" />
             <StatsCard icon={<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />} label="Inventory Value" value={`₹${totalValue.toLocaleString()}`} color="from-green-500 to-teal-600" />
@@ -288,7 +288,6 @@ function ProductTable({ products, handleDelete, deleteLoading }: any) {
                   <Link href={`/admin/products/${product.id}/reviews`} className="text-indigo-600 text-xs hover:underline">
                     View Reviews
                   </Link>
-
                 </div>
               </td>
             </tr>

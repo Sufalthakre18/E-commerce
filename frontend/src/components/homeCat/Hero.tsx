@@ -387,8 +387,18 @@ const HomeLandingPage: React.FC = () => {
         </div>
       </section>
 
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 py-16'>
+          <h1>
+            <span className='uppercase text-3xl md:text-4xl font-light tracking-widest text-gray-900 mb-3 flex items-center justify-center gap-3'>
+              <Sparkles className='h-8 w-8 text-amber-500' />
+              Exciting products are on the way — stay tuned!
+              <Sparkles className='h-8 w-8 text-amber-500' />
+            </span>
+          </h1>
+      </div>
+
       {/* Categories Section */}
-      <section className="py-16 sm:py-20 bg-white">
+      {/* <section className="py-16 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div
             id="categories-header"
@@ -424,10 +434,10 @@ const HomeLandingPage: React.FC = () => {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Featured Products Section */}
-      <section className="relative py-20 md:py-24 overflow-hidden">
+      {/* <section className="relative py-20 md:py-24 overflow-hidden">
         <div className="absolute inset-0 z-0 bg-amber-900" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
@@ -455,7 +465,7 @@ const HomeLandingPage: React.FC = () => {
               isVisible['featured-products'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
             }`}
           >
-            {/* Desktop Horizontal Scroll with Navigation Arrows */}
+            
             <div className="hidden lg:block relative">
               <div 
                 ref={scrollContainerRef}
@@ -475,7 +485,6 @@ const HomeLandingPage: React.FC = () => {
                 <div className="flex-none w-6" />
               </div>
               
-              {/* Navigation Arrows */}
               <button
                 onClick={scrollLeft}
                 className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-amber-200 hover:bg-amber-300 text-amber-800 w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 hover:scale-105"
@@ -493,7 +502,7 @@ const HomeLandingPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Mobile Horizontal Scroll */}
+          
             <div className="lg:hidden">
               <div className="flex gap-6 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-4">
                 <div className="flex-none w-6" />
@@ -525,7 +534,7 @@ const HomeLandingPage: React.FC = () => {
             </button>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/*  Styles */}
       <style jsx>{`

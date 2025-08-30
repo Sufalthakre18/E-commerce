@@ -1,123 +1,158 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { prisma } from "../lib/prisma";
 import { razorpay } from "../lib/razorpay";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware";
 
-// service logic here that's why it have not created a separate service file for refund details
-// all logic here is for admin side that's why it have not service logic
-
-// Backend: getAllOrders controller
-export const getAllOrders = async (req: Request, res: Response) => {
+export const getAllOrders = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 20;
   const skip = (page - 1) * limit;
 
-  const [orders, total] = await Promise.all([
-    prisma.order.findMany({
-      skip,
-      take: limit,
-      include: {
-        user: true,
-        items: { include: { product: true , size:true, variant:true} },
-        address: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.order.count(),
-  ]);
+  try {
+    const [orders, total] = await Promise.all([
+      prisma.order.findMany({
+        skip,
+        take: limit,
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: { include: { images: true, digitalFiles: true } },
+              size: true,
+              variant: true,
+            },
+          },
+          address: true,
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.order.count(),
+    ]);
 
-  return res.json({
-    data: orders,
-    total,
-    page,
-    totalPages: Math.ceil(total / limit),
-  });
+    // Secure digitalFiles for non-admins
+    const securedOrders = orders.map(order => ({
+      ...order,
+      items: order.items.map(item => ({
+        ...item,
+        product: {
+          ...item.product,
+          digitalFiles: req.user!.role === "ADMIN" && order.status === "DELIVERED" && item.product.productType === "digital"
+            ? item.product.digitalFiles
+            : [],
+        },
+      })),
+    }));
+
+    res.json({
+      data: securedOrders,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    console.error("Failed to get orders:", error);
+    res.status(500).json({ message: "Server error while fetching orders" });
+  }
 };
 
-
-export const updateOrderStatus = async (req: Request, res: Response) => {
+export const updateOrderStatus = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { orderId } = req.params;
   const { status } = req.body;
 
   const validStatuses = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
   if (!validStatuses.includes(status)) {
-    return res.status(400).json({ message: "Invalid status value" });
+    res.status(400).json({ message: "Invalid status value" });
+    return;
   }
 
-  const updated = await prisma.order.update({
-    where: { id: orderId },
-    data: { status },
-  });
-
-  return res.json({ message: "Order status updated", order: updated });
+  try {
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: { status },
+    });
+    res.json({ message: "Order status updated", order: updated });
+  } catch (error) {
+    console.error("Failed to update order status:", error);
+    res.status(500).json({ message: "Server error while updating order status" });
+  }
 };
 
-export const confirmReturnOrder = async (req: Request, res: Response) => {
+export const confirmReturnOrder = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { orderId } = req.params;
 
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { payment: true },
-  });
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true, items: { include: { product: true } } },
+    });
 
-  if (!order) return res.status(404).json({ error: "Order not found" });
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
 
-  if (order.status !== "RETURN_REQUESTED") {
-    return res.status(400).json({ error: "Return not yet requested" });
-  }
+    if (order.status !== "RETURN_REQUESTED") {
+      res.status(400).json({ error: "Return not yet requested" });
+      return;
+    }
 
-  let deductionCharge = 100;
-  let refundAmount = Math.max(order.total - deductionCharge, 0); // Ensure refund is not negative
+    const isAllDigital = order.items.every(item => item.product.productType === "digital");
+    if (isAllDigital) {
+      res.status(400).json({ error: "Digital orders cannot be returned" });
+      return;
+    }
 
-  // update order status
-  await prisma.order.update({
-    where: { id: orderId },
-    data: { status: "RETURNED" },
-  });
+    let deductionCharge = 100;
+    let refundAmount = Math.max(order.total - deductionCharge, 0);
 
-  // 2. Refund processing
-  if (
-    order.payment?.method === "razorpay" &&
-    order.payment.status === "PAID" &&
-    order.payment.transactionId
-  ) {
-    try {
-      const refund = await razorpay.payments.refund(order.payment.transactionId, {
-        amount: refundAmount * 100, // razorpay expects amount in paisa
-      });
+    // Update order status
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { status: "RETURNED" },
+    });
 
+    // Refund processing
+    if (order.payment?.method === "razorpay" && order.payment.status === "PAID" && order.payment.transactionId) {
+      try {
+        const refund = await razorpay.payments.refund(order.payment.transactionId, {
+          amount: refundAmount * 100,
+        });
+
+        await prisma.refund.create({
+          data: {
+            orderId,
+            amount: refundAmount,
+            reason: `Returned item - ₹${deductionCharge} deduction - Razorpay refund`,
+            status: "PROCESSED",
+            deduction: deductionCharge,
+            transactionId: refund.id,
+          },
+        });
+      } catch (err) {
+        console.error("Refund failed:", err);
+        res.status(500).json({ error: "Razorpay refund failed" });
+        return;
+      }
+    } else {
       await prisma.refund.create({
         data: {
           orderId,
           amount: refundAmount,
-          reason: `Returned item - ₹${deductionCharge} deduction - Razorpay refund`,
-          status: "PROCESSED",
+          reason: `Returned item - ₹${deductionCharge} deduction - COD, manual refund`,
           deduction: deductionCharge,
-          transactionId: refund.id,
+          status: "MANUAL",
         },
       });
-
-    } catch (err) {
-      console.error("Refund failed:", err);
-      return res.status(500).json({ error: "Razorpay refund failed" });
     }
-  }
-  else {
-    await prisma.refund.create({
-      data: {
-        orderId,
-        amount: refundAmount,
-        reason: `Returned item - ₹${deductionCharge} deduction - COD, manual refund`,
-        deduction: deductionCharge,
-        status: "MANUAL",
-      },
-    });
-  }
 
-  return res.json({ success: true, message: "Return confirmed. Refund initiated." });
+    res.json({ success: true, message: "Return confirmed. Refund initiated." });
+  } catch (error) {
+    console.error("Failed to confirm return:", error);
+    res.status(500).json({ error: "Server error while confirming return" });
+  }
 };
 
-
-export const getOrderById = async (req: Request, res: Response) => {
+export const getOrderById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { id } = req.params;
 
   try {
@@ -129,18 +164,22 @@ export const getOrderById = async (req: Request, res: Response) => {
         items: {
           include: {
             product: {
-              include: {
+              select: {
+                id: true,
+                name: true,
                 images: true,
                 category: true,
-
+                productType: true,
+                price: true,
+                digitalFiles: { select: { id: true, publicId: true, fileName: true } },
               },
             },
-            size: true, 
+            size: true,
             variant: {
               include: {
                 images: true,
               },
-            }, 
+            },
           },
         },
         payment: true,
@@ -150,19 +189,43 @@ export const getOrderById = async (req: Request, res: Response) => {
     });
 
     if (!order) {
-      return res.status(404).json({ message: "Order not found" });
+      res.status(404).json({ message: "Order not found" });
+      return;
     }
 
-    return res.json(order);
+    // Apply digital download logic similar to getUserOrders
+    const securedOrder = {
+      ...order,
+      items: order.items.map(item => ({
+        ...item,
+        product: {
+          ...item.product,
+          // For admins: show digitalFiles if delivered and digital product
+          digitalFiles: req.user!.role === "ADMIN" && order.status === "DELIVERED" && item.product.productType === "digital"
+            ? item.product.digitalFiles
+            : [],
+        },
+        // Add download links logic for users (when order is PAID or DELIVERED)
+        downloadLinks: item.product.productType === 'digital' && ['PAID', 'DELIVERED'].includes(order.status)
+          ? item.product.digitalFiles.map(file => ({
+              id: file.id,
+              url: '', // URL fetched via /order/download endpoint
+              fileName: file.fileName,
+              downloadAvailableAt: order.payment?.createdAt || order.createdAt,
+              downloadExpirySeconds: 3600, // 1 hour expiry
+            }))
+          : []
+      }))
+    };
+
+    res.json(securedOrder);
   } catch (error) {
     console.error("Failed to get order:", error);
-    return res.status(500).json({ message: "Server error while fetching order" });
+    res.status(500).json({ message: "Server error while fetching order" });
   }
 };
 
-
-
-export const deleteRefundDetails = async (req: Request, res: Response) => {
+export const deleteRefundDetails = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { orderId } = req.params;
 
   try {
@@ -171,21 +234,22 @@ export const deleteRefundDetails = async (req: Request, res: Response) => {
     });
 
     if (!refund) {
-      return res.status(404).json({ error: "Refund details not found." });
+      res.status(404).json({ error: "Refund details not found." });
+      return;
     }
 
     await prisma.refundDetail.delete({
       where: { orderId },
     });
 
-    return res.json({ success: true, message: "Refund details permanently deleted" });
+    res.json({ success: true, message: "Refund details permanently deleted" });
   } catch (error) {
     console.error("Error deleting refund details:", error);
-    return res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-export const getAllRefundDetails = async (req: Request, res: Response) => {
+export const getAllRefundDetails = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const refundDetails = await prisma.refundDetail.findMany({
       include: {
@@ -203,21 +267,19 @@ export const getAllRefundDetails = async (req: Request, res: Response) => {
       },
     });
 
-    // Add processed flag to each refund
-    const enrichedRefunds = refundDetails.map((refund:any) => ({
+    const enrichedRefunds = refundDetails.map(refund => ({
       ...refund,
       processed: !!refund.deletedAt,
     }));
 
-    return res.json({ success: true, data: enrichedRefunds });
+    res.json({ success: true, data: enrichedRefunds });
   } catch (error) {
     console.error("Error fetching refund details", error);
-    return res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
-
-export const getRefundDetailsByOrderId = async (req: Request, res: Response) => {
+export const getRefundDetailsByOrderId = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { orderId } = req.params;
 
   try {
@@ -226,17 +288,18 @@ export const getRefundDetailsByOrderId = async (req: Request, res: Response) => 
     });
 
     if (!refund || refund.deletedAt) {
-      return res.status(404).json({ error: "No refund details found for this order." });
+      res.status(404).json({ error: "No refund details found for this order." });
+      return;
     }
 
-    return res.json({ success: true, refund });
+    res.json({ success: true, refund });
   } catch (error) {
-    console.error("error fetching refund details", error);
-    return res.status(500).json({ error: "Something went wrong while fetching refund details." });
+    console.error("Error fetching refund details", error);
+    res.status(500).json({ error: "Something went wrong while fetching refund details." });
   }
 };
 
-export const refundStatusUpdate = async (req: Request, res: Response) => {
+export const refundStatusUpdate = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const { orderId } = req.params;
 
   try {
@@ -245,19 +308,20 @@ export const refundStatusUpdate = async (req: Request, res: Response) => {
     });
 
     if (!refundDetail) {
-      return res.status(404).json({ success: false, message: 'Refund detail not found' });
+      res.status(404).json({ success: false, message: "Refund detail not found" });
+      return;
     }
 
     const updated = await prisma.refundDetail.update({
       where: { orderId },
       data: {
-        deletedAt: new Date(), 
+        deletedAt: new Date(),
       },
     });
 
-    return res.json({ success: true, data: updated });
-  } catch (err) {
-    console.error('[PATCH refund-details/:orderId]', err);
-    return res.status(500).json({ success: false, message: 'Something went wrong' });
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error("[PATCH refund-details/:orderId]", error);
+    res.status(500).json({ success: false, message: "Something went wrong" });
   }
 };

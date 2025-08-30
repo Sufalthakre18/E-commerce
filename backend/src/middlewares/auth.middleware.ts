@@ -13,7 +13,11 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export const verifyUser = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+
+  
+console.debug('verifyUser headers:', req.headers.authorization);
   const token = req.headers.authorization?.split(' ')[1];
+
   if (!token) return res.status(401).json({ message: 'No token provided' });
 
   try {

@@ -47,8 +47,10 @@ export default function Header() {
   const [isDropdownVisible, setIsDropdownVisible] = useState<boolean>(false);
   const [pulseBadge, setPulseBadge] = useState<boolean>(false);
   const [cartItemCount, setCartItemCount] = useState<number>(0);
+  const [isClient, setIsClient] = useState<boolean>(false); // Track client-side rendering
 
   useEffect(() => {
+    setIsClient(true); // Set to true after component mounts on client
     setCartItemCount(totalItems());
     const unsubscribe = useCartStore.subscribe((state) => {
       const newCount = state.totalItems();
@@ -148,20 +150,20 @@ export default function Header() {
     },
     HOME: {
       categories: [
-        {
-          title: 'Living Room',
-          items: ['Sofas', 'Coffee Tables', 'Rugs', 'Lighting', 'Decor', 'Storage'],
-          image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300&h=200&fit=crop',
-        },
-        {
-          title: 'Bedroom',
-          items: ['Bedding', 'Pillows', 'Throws', 'Furniture', 'Lighting'],
-          image: 'https://images.unsplash.com/photo-1540518614846-7eded1432cc6?w=300&h=200&fit=crop',
-        },
+        // {
+        //   title: 'Living Room',
+        //   items: ['Sofas', 'Coffee Tables', 'Rugs', 'Lighting', 'Decor', 'Storage'],
+        //   image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300&h=200&fit=crop',
+        // },
+        // {
+        //   title: 'Bedroom',
+        //   items: ['Bedding', 'Pillows', 'Throws', 'Furniture', 'Lighting'],
+        //   image: 'https://images.unsplash.com/photo-1540518614846-7eded1432cc6?w=300&h=200&fit=crop',
+        // },
       ],
       featured: {
         title: 'Home Collection',
-        subtitle: 'New Season',
+        subtitle: 'Exciting products are on the way — stay tuned!',
         image: 'https://images.unsplash.com/photo-1493663284031-b7e3aaa4cab7?w=400&h=500&fit=crop',
       },
     },
@@ -318,6 +320,7 @@ export default function Header() {
             onClick={toggleMenu}
             type="button"
             aria-label={isMenuOpen ? 'Close main menu' : 'Open main menu'}
+            data-formignore="true"
           >
             {isMenuOpen ? (
               <X className="size-6" />
@@ -338,20 +341,32 @@ export default function Header() {
 
           <div className="flex items-center">
             <Link href="/cart" title="View Cart">
-              <button
-                type="button"
-                className="relative flex items-center p-2 text-gray-900 hover:text-gray-700 rounded-md transition-colors duration-200"
-                aria-label="View Cart"
-              >
-                <ShoppingBag className="size-6" />
-                <span
-                  className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${
-                    cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
-                  } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
+              {isClient ? (
+                <button
+                  type="button"
+                  className="relative flex items-center p-2 text-gray-900 hover:text-red-700 rounded-md transition-colors duration-200"
+                  aria-label="View Cart"
+                  data-formignore="true"
                 >
-                  {cartItemCount > 99 ? '99+' : cartItemCount}
-                </span>
-              </button>
+                  <ShoppingBag className="size-6" />
+                  <span
+                    className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${
+                      cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
+                    } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
+                  >
+                    {cartItemCount > 99 ? '99+' : cartItemCount}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="relative flex items-center p-2 text-gray-900 hover:text-red-700 rounded-md transition-colors duration-200"
+                  aria-label="View Cart"
+                  data-formignore="true"
+                >
+                  <ShoppingBag className="size-6" />
+                </button>
+              )}
             </Link>
           </div>
         </div>
@@ -384,20 +399,32 @@ export default function Header() {
 
               <div className="flex items-center gap-3">
                 <Link href="/cart" title="View Cart">
-                  <button
-                    type="button"
-                    className="relative flex items-center p-2 text-gray-800 hover:text-red-700 rounded-md transition-colors duration-200"
-                    aria-label="View Cart"
-                  >
-                    <ShoppingBag className="size-5" />
-                    <span
-                      className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${
-                        cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
-                      } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
+                  {isClient ? (
+                    <button
+                      type="button"
+                      className="relative flex items-center p-2 text-gray-800 hover:text-red-700 rounded-md transition-colors duration-200"
+                      aria-label="View Cart"
+                      data-formignore="true"
                     >
-                      {cartItemCount > 99 ? '99+' : cartItemCount}
-                    </span>
-                  </button>
+                      <ShoppingBag className="size-5" />
+                      <span
+                        className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${
+                          cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
+                        } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
+                      >
+                        {cartItemCount > 99 ? '99+' : cartItemCount}
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="relative flex items-center p-2 text-gray-800 hover:text-red-700 rounded-md transition-colors duration-200"
+                      aria-label="View Cart"
+                      data-formignore="true"
+                    >
+                      <ShoppingBag className="size-5" />
+                    </button>
+                  )}
                 </Link>
               </div>
             </div>
@@ -411,7 +438,7 @@ export default function Header() {
           }`}
         >
           <div className="flex h-12 items-center justify-between px-2.5">
-            <button className="p-2" onClick={toggleMenu} aria-label="Close menu">
+            <button className="p-2" onClick={toggleMenu} aria-label="Close menu" data-formignore="true">
               <X className="size-6 text-gray-900" />
             </button>
             <Link href="/" title="Your Store" onClick={toggleMenu}>
@@ -427,6 +454,7 @@ export default function Header() {
                     onClick={() => handleMobileDropdownToggle(item.label)}
                     className="w-full py-4 text-left text-lg font-normal uppercase tracking-wide flex items-center justify-between text-gray-900"
                     style={{ fontFamily: cinzel.style.fontFamily }}
+                    data-formignore="true"
                   >
                     <span>{item.label}</span>
                     {megaMenuData[item.label as keyof MegaMenuData] && (
@@ -516,7 +544,7 @@ export default function Header() {
                       {megaMenuData[activeDropdown].featured.subtitle}
                     </p>
                     <h3 className={`text-white ${cinzel.className} font-medium text-3xl mb-6 tracking-wide`}>{megaMenuData[activeDropdown].featured.title}</h3>
-                    <button className="bg-white text-black px-8 py-3 text-sm font-medium tracking-wide uppercase hover:bg-gray-100 transition-colors duration-200" style={{ fontFamily: sourceSansPro.style.fontFamily }}>
+                    <button className="bg-white text-black px-8 py-3 text-sm font-medium tracking-wide uppercase hover:bg-gray-100 transition-colors duration-200" style={{ fontFamily: sourceSansPro.style.fontFamily }} data-formignore="true">
                       Shop Now
                     </button>
                   </div>

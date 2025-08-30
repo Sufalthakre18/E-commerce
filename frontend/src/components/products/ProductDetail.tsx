@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Star,  Share2, Truck, Shield, RotateCcw, ChevronLeft, ChevronRight, Plus, Minus, ShoppingBag, Zap, ChevronDown } from 'lucide-react';
+import { Star, Share2, Truck, Shield, RotateCcw, ChevronLeft, ChevronRight, Plus, Minus, ShoppingBag, Zap, ChevronDown } from 'lucide-react';
 import { Cinzel, Unica_One, Raleway, Source_Sans_3 } from 'next/font/google';
 import { useCartStore } from '@/store/cart';
 import { toast } from 'sonner';
@@ -52,6 +52,7 @@ interface Product {
   price: number;
   stock: number;
   type: string;
+  productType: string; // Added to support digital/physical distinction
   images: ProductImage[];
   sizes: ProductSize[];
   variants: ProductVariant[];
@@ -82,6 +83,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
   const [touchStart, setTouchStart] = useState(0);
 
   const thumbnailsRef = useRef<HTMLDivElement>(null);
+
+  const isDigital = product.productType === 'digital';
 
   const fetchReviews = async () => {
     try {
@@ -171,7 +174,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
   };
 
   const handleAddToCart = () => {
-    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+    if (!isDigital && product.sizes && product.sizes.length > 0 && !selectedSize) {
       toast.error('Please select a size before adding to cart.');
       return;
     }
@@ -185,14 +188,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       price: itemPrice,
       quantity: quantity,
       image: currentImages[0]?.url || product.images[0]?.url || '',
-      sizeId: selectedSizeObject?.id || null,
-      sizeLabel: selectedSize,
-      variantId: selectedVariant?.id || '',
+      sizeId: isDigital ? null : selectedSizeObject?.id || null,
+      sizeLabel: isDigital ? 'N/A' : selectedSize || 'N/A',
+      variantId: product.productType === 'digital' ? null : selectedVariant?.id || null,
       color: selectedVariant?.color || 'N/A',
+      productType: product.productType,
     };
 
     addToCart(cartItem);
-    toast.success(`${quantity} of ${product.name} (${selectedSize || 'N/A'}) added to cart!`);
+    toast.success(`${quantity} of ${product.name} ${isDigital ? '(Digital)' : `(${selectedSize || 'N/A'})`} added to cart!`);
   };
 
   if (!product) {
@@ -282,7 +286,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                     fontWeight: 400,
                   }}
                 >
-                  Home / Clothing / Jeans / {product.name}
+                  Home / {isDigital ? 'Digital Products' : 'Clothing'} / {product.type || 'Products'} / {product.name}
                 </div>
               </nav>
               <h1 className={`lg:px-8 py-1 text-3xl font-light text-gray-900 tracking-tight ${cinzel.className}`}>
@@ -302,6 +306,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 <span className={`${unica.className} text-lg font- text-gray-900`}>
                   {formatPrice(selectedVariant?.price || product.price)}
                 </span>
+                {isDigital && (
+                  <span className="text-sm text-blue-600 flex items-center">
+                    <Zap className="w-4 h-4 mr-1" />
+                    Digital Download
+                  </span>
+                )}
               </div>
             </div>
             {product.variants && product.variants.length > 0 && (
@@ -327,7 +337,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               </div>
             )}
-            {product.sizes && product.sizes.length > 0 && (
+            {!isDigital && product.sizes && product.sizes.length > 0 && (
               <div className="space-y-4 lg:px-8">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Size</h3>
@@ -350,6 +360,14 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+            {isDigital && (
+              <div className="space-y-4 lg:px-8">
+                <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Download Information</h3>
+                <p className={`${sourceSans.className} text-sm text-gray-600`}>
+                  This is a digital product. After purchase, you’ll receive an email with download links and access them from your orders page.
+                </p>
               </div>
             )}
             <div className="space-y-4 lg:px-8">
@@ -380,7 +398,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                     fontWeight: 400,
                   }}
                 >
-                  {product.stock || 0} in stock
+                  {isDigital ? 'Available for download' : `${product.stock || 0} in stock`}
                 </span>
               </div>
             </div>
@@ -396,15 +414,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
             <div className="grid grid-cols-3 gap-4 py-6 border-t border-gray-200">
               <div className="text-center">
                 <Truck className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-                <span className="text-xs text-gray-600 font-medium">Free Shipping</span>
+                <span className="text-xs text-gray-600 font-medium">{isDigital ? 'Instant Download' : 'Free Shipping'}</span>
               </div>
               <div className="text-center">
                 <RotateCcw className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-                <span className="text-xs text-gray-600 font-medium">Free Returns</span>
+                <span className="text-xs text-gray-600 font-medium">{isDigital ? 'Non-Returnable' : 'Free Returns'}</span>
               </div>
               <div className="text-center">
                 <Shield className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-                <span className="text-xs text-gray-600 font-medium">2 Year Warranty</span>
+                <span className="text-xs text-gray-600 font-medium">{isDigital ? 'Secure Download' : '2 Year Warranty'}</span>
               </div>
             </div>
             <div className="border-t border-gray-200">
@@ -423,32 +441,32 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               )}
             </div>
-            <div className="border-t border-gray-200">
-              <button
-                onClick={() => setReviewsOpen(!reviewsOpen)}
-                className="w-full flex justify-between items-center py-4 text-left font-medium text-gray-900"
-              >
-                <span>REVIEWS ({reviews.length})</span>
-                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${reviewsOpen ? 'rotate-180' : ''}`} />
-              </button>
-              <div className="lg:px-8 flex items-center space-x-3">
-                <div className="flex items-center space-x-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-4 h-4 ${i < Math.floor(reviewStats.averageRating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
-                    />
-                  ))}
+            {reviews.length > 0 && (
+              <div className="border-t border-gray-200">
+                <button
+                  onClick={() => setReviewsOpen(!reviewsOpen)}
+                  className="w-full flex justify-between items-center py-4 text-left font-medium text-gray-900"
+                >
+                  <span>REVIEWS ({reviews.length})</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${reviewsOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <div className="lg:px-8 flex items-center space-x-3">
+                  <div className="flex items-center space-x-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-4 h-4 ${i < Math.floor(reviewStats.averageRating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm text-gray-600">
+                    {reviewStats.averageRating > 0 ? reviewStats.averageRating.toFixed(1) : 'No reviews'}
+                    {reviewStats.total > 0 && ` (${reviewStats.total} reviews)`}
+                  </span>
                 </div>
-                <span className="text-sm text-gray-600">
-                  {reviewStats.averageRating > 0 ? reviewStats.averageRating.toFixed(1) : 'No reviews'}
-                  {reviewStats.total > 0 && ` (${reviewStats.total} reviews)`}
-                </span>
-              </div>
-              {reviewsOpen && (
-                <div className="space-y-6">
-                  {reviews.length > 0 ? (
-                    reviews.map((review) => (
+                {reviewsOpen && (
+                  <div className="space-y-6">
+                    {reviews.map((review) => (
                       <div key={review.id} className="border-b border-gray-200 pb-6 last:border-b-0">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center space-x-3">
@@ -475,64 +493,64 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                         </div>
                         <p className={`${sourceSans.className} text-gray-600`}>{review.comment}</p>
                       </div>
-                    ))
-                  ) : (
-                    <p className={`${sourceSans.className} text-gray-600`}>No reviews yet. Be the first to review this product!</p>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="border-t border-gray-200">
-              <button
-                onClick={() => setShippingOpen(!shippingOpen)}
-                className="w-full flex justify-between items-center py-4 text-left font-medium text-gray-900"
-              >
-                <span>SHIPPING & RETURNS</span>
-                <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${shippingOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {shippingOpen && (
-                <div className={`${sourceSans.className} grid grid-cols-1 md:grid-cols-2 gap-8 py-4`}>
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Shipping Options</h3>
-                    <div className="space-y-4">
-                      <div className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">Standard Shipping</span>
-                          <span className="text-green-600 font-medium">FREE</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {!isDigital && (
+              <div className="border-t border-gray-200">
+                <button
+                  onClick={() => setShippingOpen(!shippingOpen)}
+                  className="w-full flex justify-between items-center py-4 text-left font-medium text-gray-900"
+                >
+                  <span>SHIPPING & RETURNS</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${shippingOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {shippingOpen && (
+                  <div className={`${sourceSans.className} grid grid-cols-1 md:grid-cols-2 gap-8 py-4`}>
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Shipping Options</h3>
+                      <div className="space-y-4">
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium">Standard Shipping</span>
+                            <span className="text-green-600 font-medium">FREE</span>
+                          </div>
+                          <p className="text-sm text-gray-600">5-7 business days</p>
                         </div>
-                        <p className="text-sm text-gray-600">5-7 business days</p>
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium">Express Shipping</span>
+                            <span className="font-medium">$12.99</span>
+                          </div>
+                          <p className="text-sm text-gray-600">2-3 business days</p>
+                        </div>
+                        <div className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium">Next Day Delivery</span>
+                            <span className="font-medium">$24.99</span>
+                          </div>
+                          <p className="text-sm text-gray-600">Next business day</p>
+                        </div>
                       </div>
-                      <div className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">Express Shipping</span>
-                          <span className="font-medium">$12.99</span>
-                        </div>
-                        <p className="text-sm text-gray-600">2-3 business days</p>
-                      </div>
-                      <div className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">Next Day Delivery</span>
-                          <span className="font-medium">$24.99</span>
-                        </div>
-                        <p className="text-sm text-gray-600">Next business day</p>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium mb-4">Return Policy</h3>
+                      <div className="space-y-4 text-gray-600">
+                        <p>We offer free returns within 30 days of purchase.</p>
+                        <ul className="space-y-2">
+                          <li>• Items must be in original condition</li>
+                          <li>• Tags must be attached</li>
+                          <li>• Return shipping is free</li>
+                          <li>• Refunds processed within 5-7 business days</li>
+                        </ul>
                       </div>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Return Policy</h3>
-                    <div className="space-y-4 text-gray-600">
-                      <p>We offer free returns within 30 days of purchase.</p>
-                      <ul className="space-y-2">
-                        <li>• Items must be in original condition</li>
-                        <li>• Tags must be attached</li>
-                        <li>• Return shipping is free</li>
-                        <li>• Refunds processed within 5-7 business days</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

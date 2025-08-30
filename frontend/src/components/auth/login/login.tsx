@@ -43,7 +43,7 @@ export default function LoginPage() {
           throw new Error(signInResult.error);
         }
         toast.success('Login successful');
-        router.push(redirect);
+        router.push('/cart');
       } else {
         throw new Error('No token received');
       }
@@ -75,7 +75,7 @@ export default function LoginPage() {
         throw new Error(data.message || 'Failed to send OTP');
       }
       toast.success('OTP sent to your email');
-      router.push(`/otp?email=${encodeURIComponent(email)}&redirect=${redirect}`);
+      router.push(`/otp?email=${encodeURIComponent(email)}&redirect=/cart`);
     } catch (err: any) {
       console.error('OTP error:', err.message);
       toast.error(err.message || 'Failed to send OTP');
@@ -85,12 +85,7 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    try {
-      await signIn('google', { callbackUrl: redirect });
-    } catch (err: any) {
-      console.error('Google login error:', err.message);
-      toast.error('Google login failed');
-    }
+    await signIn('google', { callbackUrl: '/cart' });
   };
 
   return (

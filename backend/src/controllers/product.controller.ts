@@ -1,20 +1,18 @@
 import { Request, Response } from "express";
 import { productService } from "../services/product.service";
-import { uploadOnCloudinary } from "../lib/cloudinary";
+import { uploadOnCloudinary, UploadResult } from "../lib/cloudinary";
+import { prisma } from "../lib/prisma";
+import path from "path";
 import { UploadApiResponse } from "cloudinary";
 
+// Define AuthRequest interface
+interface AuthRequest extends Request {
+  user: { id: string; role: string };
+}
 
 export const ProductController = {
   async getAll(req: Request, res: Response) {
-    const {
-      page,
-      limit,
-      categoryId,
-      search,
-      minPrice,
-      maxPrice,
-      type,
-    } = req.query;
+    const { page, limit, categoryId, search, minPrice, maxPrice, type, productType } = req.query;
 
     const filters = {
       page: Number(page) || 1,
@@ -24,185 +22,418 @@ export const ProductController = {
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
       type: type as string,
+      productType: productType as string,
     };
 
-    const result = await productService.getAllPaginated(filters);
-    res.json(result);
-  },  // used by user to get all products,
-  async create(req: Request, res: Response) {
     try {
-      const files = req.files as Express.Multer.File[];
-
-
-      const uploads = await Promise.all(
-        files.map((f) => uploadOnCloudinary(f.path))
-      );
-
-      const successes = uploads.filter((u): u is UploadApiResponse => !!u);
-      const allImageData = successes.map((u) => ({
-        url: u.secure_url,
-        publicId: u.public_id,
-      }));
-
-      let processedData = { ...req.body };
-
-      if (req.body.variants) {
-        const variants = typeof req.body.variants === 'string'
-          ? JSON.parse(req.body.variants)
-          : req.body.variants;
-
-        const processedVariants = variants.map((variant: any) => ({
-          ...variant,
-          images: variant.imageIndices
-            ? variant.imageIndices.map((index: number) => allImageData[index])
-            : []
-        }));
-
-        processedData.variants = processedVariants;
-      }
-
-      if (processedData.details && typeof processedData.details === 'string') {
-        processedData.details = processedData.details.trim();
-      }
-
-      const usedImageIndices = new Set();
-      if (processedData.variants) {
-        processedData.variants.forEach((v: any) => {
-          if (v.imageIndices) {
-            v.imageIndices.forEach((index: number) => usedImageIndices.add(index));
-          }
-        });
-      }
-
-      const generalImages = allImageData.filter((_, index) => !usedImageIndices.has(index));
-      processedData.images = generalImages;
-
-      const product = await productService.create(processedData);
-      res.status(201).json(product);
-
+      const result = await productService.getAllPaginated(filters);
+      const securedProducts = {
+        ...result,
+        products: result.products.map(product => ({
+          ...product,
+          digitalFiles: [],
+        })),
+      };
+      res.json(securedProducts);
     } catch (err) {
-      console.error("product creation failed:", err);
-      res.status(500).json({ error: "failed to create product" });
+      console.error("Error fetching products:", err);
+      res.status(500).json({ success: false, message: "Failed to fetch products" });
     }
-  }
-  ,
-  async update(req: Request, res: Response) {
-    const { id } = req.params;
+  },
 
-    const filesByField = req.files as {
-      [field: string]: Express.Multer.File[];
-    };
-
-    const productFiles = filesByField["images"] || [];
-    const variantFiles = filesByField["variantImages"] || [];
-
-    const { imagesToDelete, variants: rawVariants, ...rest } = req.body;
-    const variants = typeof rawVariants === "string"
-      ? JSON.parse(rawVariants)
-      : rawVariants;
-
+  async create(req: AuthRequest, res: Response) {
     try {
-      const productUploads = await Promise.all(
-        productFiles.map((f) => uploadOnCloudinary(f.path))
-      );
-      const newImages = productUploads
-        .filter((u): u is UploadApiResponse => !!u)
-        .map((u) => ({ url: u.secure_url, publicId: u.public_id }));
+      const { name, description, details, price, stock, categoryId, productType, sizes, variants } = req.body;
+      const files = req.files as { images?: Express.Multer.File[]; digitalFiles?: Express.Multer.File[] };
 
-      const variantIndexes = Array.isArray(req.body.variantImageIndexes)
-        ? req.body.variantImageIndexes.map((s: string) => parseInt(s, 10))
-        : req.body.variantImageIndexes
-          ? [parseInt(req.body.variantImageIndexes, 10)]
-          : [];
+      if (req.user.role !== "ADMIN") {
+        return res.status(403).json({ error: "Only admins can create products" });
+      }
 
-      const variantUploads = await Promise.all(
-        variantFiles.map((f) => uploadOnCloudinary(f.path))
-      );
-
-      const variantImagesMap: Record<number, { url: string; publicId: string }[]> = {};
-      variantUploads.forEach((u, idx) => {
-        if (!u) return;
-        const vi = variantIndexes[idx];
-        if (vi !== undefined) {
-          variantImagesMap[vi] = variantImagesMap[vi] || [];
-          variantImagesMap[vi].push({
-            url: u.secure_url,
-            publicId: u.public_id,
-          });
+      // Parse variants if provided as string
+      let parsedVariants = [];
+      if (variants) {
+        try {
+          parsedVariants = typeof variants === "string" ? JSON.parse(variants) : variants;
+        } catch (err) {
+          console.warn("Failed to parse variants:", err);
         }
-      });
-
-      let imagesToDeleteArray: string[] = [];
-      if (typeof imagesToDelete === "string") {
-        imagesToDeleteArray = [imagesToDelete];
-      } else if (Array.isArray(imagesToDelete)) {
-        imagesToDeleteArray = imagesToDelete;
       }
 
-      const processedVariants = variants.map((v: any, idx: number) => ({
-        ...v,
-        existingImages: (v.existingImages || []).filter((img: any) =>
-          !v.imagesToDelete?.includes(img.id)
-        ),
-        newImages: variantImagesMap[idx] || [],
-      }));
+      // Handle image uploads for product
+      const imageUploads = files.images
+        ? await Promise.all(
+            files.images.map(async (file) => {
+              console.log(`Uploading image to Cloudinary: ${file.filename}`);
+              const result = await uploadOnCloudinary(file.path, {
+                resource_type: "image",
+                folder: "ecommerce-products",
+                upload_preset: "product_images",
+              });
+              if (!result) {
+                throw new Error(`Failed to upload image: ${file.filename}`);
+              }
+              return {
+                url: result.secure_url,
+                publicId: result.publicId,
+              };
+            })
+          )
+        : [];
 
+      // Handle digital file uploads
+      const digitalFileUploads = files.digitalFiles
+        ? await Promise.all(
+            files.digitalFiles.map(async (file) => {
+              const extension = path.extname(file.originalname).toLowerCase();
+              let resourceType: "image" | "video" | "raw" = "raw";
+              if (extension === ".pdf") resourceType = "image";
+              if (extension === ".mp4") resourceType = "video";
+              console.log(`Uploading digital file to Cloudinary: ${file.filename}, resource_type: ${resourceType}`);
+              const result = await uploadOnCloudinary(file.path, {
+                resource_type: resourceType,
+                folder: "digital-files",
+                upload_preset: "digital_files",
+              });
+              if (!result) {
+                throw new Error(`Failed to upload digital file: ${file.filename}`);
+              }
+              return {
+                url: result.secure_url,
+                publicId: result.publicId,
+                fileName: file.originalname,
+              };
+            })
+          )
+        : [];
 
-      const updatedProduct = await productService.update(id, {
-        ...rest,
-        images: newImages,
-        imagesToDelete: imagesToDeleteArray,
-        variants: processedVariants,
+      // Process variants and map imageIndices to product images
+      const processedVariants = parsedVariants.map((variant: any) => {
+        let imageIndices: number[] = [];
+        if (variant.imageIndices) {
+          try {
+            imageIndices = typeof variant.imageIndices === "string"
+              ? JSON.parse(variant.imageIndices)
+              : variant.imageIndices;
+          } catch (err) {
+            console.warn(`Failed to parse imageIndices for variant ${variant.color}:`, err);
+          }
+        }
+
+        // Map imageIndices to the uploaded product images
+        const variantImages = imageIndices
+          .filter((index: number) => index >= 0 && index < imageUploads.length)
+          .map((index: number) => ({
+            url: imageUploads[index].url,
+            publicId: imageUploads[index].publicId,
+          }));
+
+        return {
+          color: variant.color,
+          colorCode: variant.colorCode,
+          price: variant.price ? parseFloat(variant.price) : undefined,
+          images: variantImages,
+        };
       });
 
-      res.json(updatedProduct);
-    } catch (err) {
-      console.error("product update error:", err);
-      res.status(500).json({ error: "Failed to update product" });
+      const product = await prisma.product.create({
+        data: {
+          name,
+          description,
+          details,
+          price: parseFloat(price),
+          stock: parseInt(stock),
+          categoryId,
+          productType,
+          images: {
+            create: imageUploads.map((img) => ({
+              url: img.url,
+              publicId: img.publicId,
+            })),
+          },
+          digitalFiles: {
+            create: digitalFileUploads.map((file) => ({
+              url: file.url,
+              publicId: file.publicId,
+              fileName: file.fileName,
+            })),
+          },
+          sizes: sizes
+            ? {
+                create: (typeof sizes === "string" ? JSON.parse(sizes) : sizes).map((s: any) => ({
+                  size: s.size,
+                  stock: s.stock,
+                })),
+              }
+            : undefined,
+          variants: processedVariants.length
+            ? {
+                create: processedVariants.map((v: any) => ({
+                  color: v.color,
+                  colorCode: v.colorCode,
+                  price: v.price,
+                  images: v.images.length
+                    ? {
+                        create: v.images.map((img: any) => ({
+                          url: img.url,
+                          publicId: img.publicId,
+                        })),
+                      }
+                    : undefined,
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          images: true,
+          digitalFiles: true,
+          sizes: true,
+          variants: { include: { images: true } },
+        },
+      });
+
+      res.json({ success: true, product });
+    } catch (err: any) {
+      console.error("Product creation error:", err);
+      res.status(500).json({ error: `Failed to create product: ${err.message}` });
     }
-  }
-  ,
+  },
+
+  async update(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params;
+      const { name, description, details, price, stock, categoryId, productType, type, sizes, variants, imagesToDelete, digitalFilesToDelete } = req.body;
+      const files = req.files as { images?: Express.Multer.File[]; variantImages?: Express.Multer.File[]; digitalFiles?: Express.Multer.File[] };
+
+      if (req.user.role !== "ADMIN") {
+        return res.status(403).json({ error: "Only admins can update products" });
+      }
+
+      // Parse deletions and arrays
+      let parsedImagesToDelete: string[] = [];
+      if (imagesToDelete) {
+        parsedImagesToDelete = typeof imagesToDelete === "string" ? JSON.parse(imagesToDelete) : imagesToDelete;
+      }
+
+      let parsedDigitalFilesToDelete: string[] = [];
+      if (digitalFilesToDelete) {
+        parsedDigitalFilesToDelete = typeof digitalFilesToDelete === "string" ? JSON.parse(digitalFilesToDelete) : digitalFilesToDelete;
+      }
+
+      let parsedSizes = [];
+      if (sizes) {
+        parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes;
+      }
+
+      let parsedVariants = [];
+      if (variants) {
+        parsedVariants = typeof variants === "string" ? JSON.parse(variants) : variants;
+      }
+
+      // Handle new product image uploads
+      const newImageUploads = files.images
+        ? await Promise.all(
+            files.images.map(async (file) => {
+              console.log(`Uploading image to Cloudinary: ${file.filename}`);
+              const result = await uploadOnCloudinary(file.path, {
+                resource_type: "image",
+                folder: "ecommerce-products",
+                upload_preset: "product_images",
+              });
+              if (!result) {
+                throw new Error(`Failed to upload image: ${file.filename}`);
+              }
+              return {
+                url: result.secure_url,
+                publicId: result.publicId,
+              };
+            })
+          )
+        : [];
+
+      // Handle new variant image uploads
+      const newVariantImageUploads = files.variantImages
+        ? await Promise.all(
+            files.variantImages.map(async (file) => {
+              console.log(`Uploading variant image to Cloudinary: ${file.filename}`);
+              const result = await uploadOnCloudinary(file.path, {
+                resource_type: "image",
+                folder: "ecommerce-products",
+                upload_preset: "product_images",
+              });
+              if (!result) {
+                throw new Error(`Failed to upload variant image: ${file.filename}`);
+              }
+              return {
+                url: result.secure_url,
+                publicId: result.publicId,
+              };
+            })
+          )
+        : [];
+
+      // Handle new digital file uploads
+      const newDigitalUploads = files.digitalFiles
+        ? await Promise.all(
+            files.digitalFiles.map(async (file) => {
+              const extension = path.extname(file.originalname).toLowerCase();
+              let resourceType: "image" | "video" | "raw" = "raw";
+              if (extension === ".pdf") resourceType = "image";
+              if (extension === ".mp4") resourceType = "video";
+              console.log(`Uploading digital file to Cloudinary: ${file.filename}, resource_type: ${resourceType}`);
+              const result = await uploadOnCloudinary(file.path, {
+                resource_type: resourceType,
+                folder: "digital-files",
+                upload_preset: "digital_files",
+              });
+              if (!result) {
+                throw new Error(`Failed to upload digital file: ${file.filename}`);
+              }
+              return {
+                url: result.secure_url,
+                publicId: result.publicId,
+                fileName: file.originalname,
+              };
+            })
+          )
+        : [];
+
+      // Process variants and map newImageIndices to newVariantImageUploads
+      const processedVariants = parsedVariants.map((variant: any) => {
+        let parsedImagesToDelete: string[] = [];
+        if (variant.imagesToDelete) {
+          parsedImagesToDelete = typeof variant.imagesToDelete === "string" ? JSON.parse(variant.imagesToDelete) : variant.imagesToDelete;
+        }
+
+        let newImageIndices: number[] = [];
+        if (variant.newImageIndices) {
+          newImageIndices = typeof variant.newImageIndices === "string" ? JSON.parse(variant.newImageIndices) : variant.newImageIndices;
+        }
+
+        const newImages = newImageIndices
+          .filter((index: number) => index >= 0 && index < newVariantImageUploads.length)
+          .map((index: number) => newVariantImageUploads[index]);
+
+        return {
+          id: variant.id,
+          color: variant.color,
+          colorCode: variant.colorCode,
+          price: variant.price ? parseFloat(variant.price) : undefined,
+          imagesToDelete: parsedImagesToDelete,
+          newImages,
+        };
+      });
+
+      // Prepare data for service
+      const updateData = {
+        name,
+        description,
+        details,
+        price: parseFloat(price),
+        stock: parseInt(stock),
+        categoryId,
+        productType,
+        type,
+        images: newImageUploads,
+        imagesToDelete: parsedImagesToDelete,
+        digitalFiles: newDigitalUploads,
+        digitalFilesToDelete: parsedDigitalFilesToDelete,
+        sizes: parsedSizes,
+        variants: processedVariants,
+      };
+
+      const updatedProduct = await productService.update(id, updateData);
+
+      res.json({ success: true, product: updatedProduct });
+    } catch (err: any) {
+      console.error("Product update error:", err);
+      res.status(500).json({ error: `Failed to update product: ${err.message}` });
+    }
+  },
 
   async delete(req: Request, res: Response) {
     try {
       const result = await productService.delete(req.params.id);
-      res.status(200).json(result);
+      res.status(200).json({ success: true, data: result });
     } catch (err) {
       console.error("Product delete error:", err);
-
-      if (err instanceof Error && err.message === "Product not found") {
-        res.status(404).json({ error: "Product not found" });
-      } else {
-        res.status(500).json({
-          error: err instanceof Error ? err.message : "Failed to delete product"
-        });
-      }
+      res.status(500).json({
+        success: false,
+        message: err instanceof Error ? err.message : "Failed to delete product"
+      });
     }
-  }
-  , // used by admin to delete a 
+  },
+
   async deleteByCategory(req: Request, res: Response) {
     const { categoryId } = req.params;
     try {
       const result = await productService.deleteProductsByCategory(categoryId);
-      res.status(200).json(result);
-    } catch (error) {
-      console.error("❌ Delete by category failed:", error);
-      res.status(500).json({ error });
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      console.error("Delete by category failed:", err);
+      res.status(500).json({ success: false, message: "Failed to delete products by category" });
     }
-  }, // used by admin to delete all products in a category
+  },
+
   async getById(req: Request, res: Response) {
     const { id } = req.params;
-    const product = await productService.getById(id);
-    res.json(product);
-  }, // used by user to get product by id
+    try {
+      const product = await productService.getById(id);
+      const securedProduct = {
+        ...product,
+        digitalFiles: [],
+      };
+      res.json({ success: true, data: securedProduct });
+    } catch (err) {
+      console.error("Error fetching product:", err);
+      res.status(500).json({ success: false, message: err instanceof Error ? err.message : "Failed to fetch product" });
+    }
+  },
+
   async getAllProducts(req: Request, res: Response) {
     const { search, categoryId, inStockOnly } = req.query;
-    const products = await productService.getFilteredProducts({
-      search: search?.toString(),
-      categoryId: categoryId?.toString(),
-      inStockOnly: inStockOnly === "true",
-    });
-    res.json(products);
-  } // used by user/admin to get all products with filters
+    try {
+      const products = await productService.getFilteredProducts({
+        search: search?.toString(),
+        categoryId: categoryId?.toString(),
+        inStockOnly: inStockOnly === "true",
+      });
+      const securedProducts = products.map(product => ({
+        ...product,
+        digitalFiles: [],
+      }));
+      res.json({ success: true, data: securedProducts });
+    } catch (err) {
+      console.error("Error fetching filtered products:", err);
+      res.status(500).json({ success: false, message: "Failed to fetch filtered products" });
+    }
+  },
 
+  async checkDigital(req: Request, res: Response): Promise<void> {
+    const { items } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ error: 'Items array is required and must not be empty' });
+      return;
+    }
+
+    try {
+      const productIds = items.map((item: { productId: string }) => item.productId);
+      const products = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        select: { productType: true },
+      });
+
+      if (products.length !== productIds.length) {
+        res.status(400).json({ error: 'Some products were not found' });
+        return;
+      }
+
+      const isAllDigital = products.every(p => p.productType === 'digital');
+      res.json({ isAllDigital });
+    } catch (err) {
+      console.error('Error checking digital products:', err);
+      res.status(500).json({ error: 'Failed to check product types' });
+    }
+  }
 };

@@ -9,16 +9,16 @@ const router = Router();
 router.use(verifyUser, isAdmin);
 
 router.get("/", ProductController.getAllProducts);
-router.post("/", upload.array("images", 20), ProductController.create);
+router.post("/", upload.fields([
+  { name: "images", maxCount: 20 },
+  { name: "digitalFiles", maxCount: 10 },  
+]), ProductController.create as any );
 
-router.put(
-  '/:id',
-  upload.fields([
-    { name: 'images', maxCount: 20 },          
-    { name: 'variantImages', maxCount: 20 },   
-  ]),
-  ProductController.update
-);
+router.put("/:id", upload.fields([
+  { name: "images", maxCount: 20 },
+  { name: "variantImages", maxCount: 20 },
+  { name: "digitalFiles", maxCount: 10 },
+]), ProductController.update as any);
 
 router.delete("/:id", ProductController.delete);
 router.delete("/category/:categoryId", ProductController.deleteByCategory);

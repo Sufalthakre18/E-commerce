@@ -1,3 +1,4 @@
+// src/components/CartView.tsx
 'use client';
 
 import { useCartStore } from '@/store/cart';
@@ -27,6 +28,7 @@ export function CartView() {
     updateQuantity,
     clearCart,
     getCartSnapshot,
+    isDigitalOnly, // New
   } = useCartStore();
 
   const handleProceed = () => {
@@ -123,7 +125,7 @@ export function CartView() {
                       ₹{(item.price * item.quantity).toLocaleString()}
                     </p>
                     <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 text-sm text-gray-500">
-                      {item.sizeLabel && (
+                      {item.sizeLabel && item.productType === 'physical' && ( // Only show size for physical
                         <span>
                           <span className="font-medium">Size:</span> {item.sizeLabel}
                         </span>
@@ -133,6 +135,10 @@ export function CartView() {
                           <span className="font-medium">Color:</span> {item.color}
                         </span>
                       )}
+                      <span>
+                        <span className="font-medium">Type:</span>{' '}
+                        {item.productType === 'digital' ? 'Digital' : 'Physical'}
+                      </span>
                     </div>
                   </div>
 
@@ -203,7 +209,7 @@ export function CartView() {
             
             <div className="flex justify-between text-lg text-gray-700 mb-4">
               <span>Shipping</span>
-              <span>Free</span>
+              <span>{isDigitalOnly() ? 'Digital Delivery' : 'Free'}</span>
             </div>
             
             <div className="border-t border-gray-300 my-6"></div>
@@ -223,8 +229,14 @@ export function CartView() {
 
             <div className="text-sm text-gray-500 mt-6">
               <ul className="list-disc list-inside space-y-1">
-                <li>Free delivery on all orders</li>
-                <li>Easy returns within 30 days of purchase</li>
+                {isDigitalOnly() ? (
+                  <li>Instant digital delivery after payment</li>
+                ) : (
+                  <>
+                    <li>Free delivery on all orders</li>
+                    <li>Easy returns within 30 days of purchase</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>

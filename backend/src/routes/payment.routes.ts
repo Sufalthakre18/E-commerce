@@ -1,3 +1,4 @@
+// src/routes/payment.routes.ts (unchanged, provided for reference)
 import express, { Router } from "express";
 import { razorpayWebhook, verifyRazorpayPayment } from "../controllers/payment.controller";
 import { verifyUser } from "../middlewares/auth.middleware";
