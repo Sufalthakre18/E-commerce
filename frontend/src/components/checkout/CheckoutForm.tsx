@@ -10,11 +10,12 @@ import CheckoutAddressSection from './CheckoutAddressSection';
 import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import { loadRazorpay } from '@/lib/utils/loadRazorpay';
 import { toast } from 'sonner';
-import { Cinzel, Source_Sans_3 } from 'next/font/google';
+import { Cinzel, Source_Sans_3,Bebas_Neue } from 'next/font/google';
 import { Truck, CreditCard, Package, Download } from 'lucide-react';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'] });
 const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
+const bebasNeue = Bebas_Neue({subsets: ['latin-ext'],weight: '400'});
 
 interface AppliedPromotion {
   valid: boolean;
@@ -208,7 +209,7 @@ export function CheckoutForm() {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className={`${cinzel.className} text-3xl font-semibold text-gray-900 mb-8 text-center`}>
+        <h1 className={`${bebasNeue.className} text-3xl font-semibold text-gray-600 mb-8 text-center`}>
           Checkout
         </h1>
         <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -228,7 +229,7 @@ export function CheckoutForm() {
             <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <div className="flex items-center space-x-3 mb-6">
                 <CreditCard className="w-6 h-6 text-gray-700" />
-                <h2 className={`${cinzel.className} text-xl font-semibold text-gray-900`}>
+                <h2 className={`${sourceSansPro.className} text-xl font-semibold text-gray-900`}>
                   Contact & Payment
                 </h2>
               </div>
@@ -306,7 +307,7 @@ export function CheckoutForm() {
             <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 sticky top-4">
               <div className="flex items-center space-x-3 mb-6">
                 <Package className="w-6 h-6 text-gray-700" />
-                <h2 className={`${cinzel.className} text-xl font-semibold text-gray-900`}>
+                <h2 className={`${bebasNeue.className} text-xl font-semibold text-gray-600`}>
                   Order Summary
                 </h2>
               </div>
@@ -417,7 +418,7 @@ export function CheckoutForm() {
                     </div>
                   )}
                   <div className="flex justify-between font-semibold text-lg border-t pt-4 text-gray-900">
-                    <span className={`${cinzel.className}`}>Total:</span>
+                    <span className={`${sourceSansPro.className}`}>Total:</span>
                     <span className={`${sourceSansPro.className}`}>
                       ₹{calculateFinalTotal.toFixed(2)}
                     </span>
@@ -430,7 +431,7 @@ export function CheckoutForm() {
               <button
                 type="submit"
                 disabled={isLoading || !isClient}
-                className={`${cinzel.className} w-full bg-gray-900 text-white py-4 rounded-lg mt-6 text-base font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`${bebasNeue.className} w-full bg-gray-800 text-white py-4 rounded-lg mt-6 text-base font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {isLoading ? 'Placing Order...' : 'Place Order'}
               </button>

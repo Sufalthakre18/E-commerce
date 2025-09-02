@@ -87,52 +87,52 @@ export const OrderService = {
   },
 
   async getUserOrders(userId: string, page: number, limit: number) {
-  const skip = (page - 1) * limit;
-  const orders = await prisma.order.findMany({
-    where: { userId },
-    skip,
-    take: limit,
-    include: {
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              price: true,
-              images: true,
-              productType: true,
-              digitalFiles: { select: { id: true, publicId: true, fileName: true } },
+    const skip = (page - 1) * limit;
+    const orders = await prisma.order.findMany({
+      where: { userId },
+      skip,
+      take: limit,
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                images: true,
+                productType: true,
+                digitalFiles: { select: { id: true, publicId: true, fileName: true } },
+              },
             },
+            size: true,
+            variant: true,
           },
-          size: true,
-          variant: true,
         },
+        payment: true,
       },
-      payment: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+      orderBy: { createdAt: 'desc' },
+    });
 
-  return {
-    orders: orders.map(order => ({
-      ...order,
-      items: order.items.map(item => ({
-        ...item,
-        downloadLinks: item.product.productType === 'digital' && ['PAID', 'DELIVERED'].includes(order.status)
-          ? item.product.digitalFiles.map(file => ({
+    return {
+      orders: orders.map(order => ({
+        ...order,
+        items: order.items.map(item => ({
+          ...item,
+          downloadLinks: item.product.productType === 'digital' && ['PAID', 'DELIVERED'].includes(order.status)
+            ? item.product.digitalFiles.map(file => ({
               id: file.id,
               url: '', // URL fetched via /order/download
               fileName: file.fileName,
               downloadAvailableAt: order.payment?.createdAt || order.createdAt, // Use payment creation time or order creation time
               downloadExpirySeconds: 3600, // 1 hour expiry
             }))
-          : []
-      }))
-    })),
-    total: await prisma.order.count({ where: { userId } })
-  };
-},
+            : []
+        }))
+      })),
+      total: await prisma.order.count({ where: { userId } })
+    };
+  },
 
   async createBuyNowOrder(userId: string, addressId: string | null, productId: string, quantity: number) {
     const product = await prisma.product.findUnique({
@@ -299,7 +299,7 @@ export const OrderService = {
     };
   },
 
- async cancelOrder(userId: string, orderId: string) {
+  async cancelOrder(userId: string, orderId: string) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -420,7 +420,8 @@ export const OrderService = {
       throw new Error("Only delivered orders can be returned.");
     }
 
-    if (order.items.some(item => item.product.productType === "digital")) {
+    const allDigital = order.items.every(item => item.product.productType === "digital");
+    if (allDigital) {
       throw new Error("Digital products cannot be returned.");
     }
 

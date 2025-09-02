@@ -6,12 +6,12 @@ import { getAuthToken } from '@/lib/utils/auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'sonner';
-import { Source_Sans_3, Cinzel } from 'next/font/google';
+import { Source_Sans_3,Bebas_Neue } from 'next/font/google';
 import { Package, ChevronLeft, ChevronRight, Download, Clock } from 'lucide-react';
 import Link from 'next/link';
 
-const cinzel = Cinzel({ subsets: ['latin'], weight: '600' });
 const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
+const bebasNeue = Bebas_Neue({subsets: ['latin-ext'],weight: '400'});
 
 interface Order {
   id: string;
@@ -173,15 +173,15 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 pt-16 pb-4 sm:px-4 lg:px-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className={`${cinzel.className} text-3xl sm:text-4xl font-semibold text-gray-900 mb-8 text-center`}>
-          Your Orders
+        <h1 className={`${bebasNeue.className} text-xl sm:text-2xl font-semibold text-gray-600 mb-2 text-center`}>
+          My Orders
         </h1>
-        <p className={`${sourceSansPro.className} text-sm text-gray-600 mb-6`}>
+        <p className={`${sourceSansPro.className} text-sm text-gray-600 mb-2`}>
           Showing {startIndex + 1}-{Math.min(endIndex, orders.length)} of {orders.length} orders
         </p>
-        <div className="space-y-6">
+        <div className="space-y-4">
           {paginatedOrders.map((order) => (
             <div
               key={order.id}
@@ -239,23 +239,7 @@ export default function OrdersPage() {
                       <p className={`${sourceSansPro.className} text-sm font-medium text-gray-900`}>
                         {item.product?.name}
                       </p>
-                      {item.variant && (
-                        <p className={`${sourceSansPro.className} text-xs text-gray-500 flex items-center gap-2`}>
-                          Color: {item.variant.color}
-                          <span
-                            className="w-3 h-3 rounded-full border"
-                            style={{ backgroundColor: item.variant.colorCode }}
-                          />
-                        </p>
-                      )}
-                      {item.product.productType === 'physical' && item.size && (
-                        <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
-                          Size: {item.size.size}
-                        </p>
-                      )}
-                      <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
-                        {item.product.productType === 'digital' ? 'Digital' : 'Physical'}
-                      </p>
+                      
                       <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
                         Qty: {item.quantity} – ₹{(item.variant?.price || item.product?.price).toFixed(2)}
                       </p>
@@ -300,7 +284,7 @@ export default function OrdersPage() {
               </div>
               <Link
                 href={`/orders/${order.id}`}
-                className={`${sourceSansPro.className} text-sm text-gray-900 font-medium mt-4 inline-block transition-colors hover:text-gray-700`}
+                className={`${sourceSansPro.className} text-sm text-gray-900 font-medium mt-4 inline-block transition-colors  hover:text-gray-700`}
               >
                 View Details
               </Link>

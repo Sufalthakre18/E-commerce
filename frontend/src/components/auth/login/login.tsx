@@ -10,6 +10,7 @@ import { Toaster, toast } from 'sonner';
 import { LucideMail, LucideLock, LucideLoader2 } from 'lucide-react';
 import { login } from '@/lib/api/auth';
 import { setAuthToken } from '@/lib/utils/auth';
+import { useCartStore } from '@/store/cart';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email'),
@@ -27,10 +28,12 @@ export default function LoginPage() {
   const redirect = params.get('redirect') || '/';
   const [loading, setLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const { getCartSnapshot, mergeCart } = useCartStore();
 
   const onSubmit = async (data: LoginForm) => {
     setLoading(true);
     try {
+      const cartSnapshot = getCartSnapshot();
       const result = await login(data);
       if (result.token) {
         await setAuthToken(result.token);
@@ -42,14 +45,15 @@ export default function LoginPage() {
         if (signInResult?.error) {
           throw new Error(signInResult.error);
         }
-        toast.success('Login successful');
+        mergeCart(cartSnapshot.items);
+        toast.success('Sign in successful');
         router.push('/cart');
       } else {
         throw new Error('No token received');
       }
     } catch (err: any) {
-      console.error('Login error:', err.message);
-      toast.error(err.message || 'Login failed');
+      console.error('Sign in error:', err.message);
+      toast.error(err.message || 'Sign in failed');
     } finally {
       setLoading(false);
     }
@@ -85,66 +89,114 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
+    const cartSnapshot = getCartSnapshot();
     await signIn('google', { callbackUrl: '/cart' });
+    mergeCart(cartSnapshot.items);
   };
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Login</h1>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="relative">
-          <LucideMail className="absolute left-3 top-3 h-5 w-5 text-gray-500" />
-          <input
-            {...register('email')}
-            placeholder="Email"
-            className="input w-full pl-10 border rounded-md"
-          />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      {/* Card - will switch to horizontal two-column layout on md and up */}
+      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div className="flex flex-col md:flex-row">
+          {/* Left: Form (takes more space on desktop) */}
+          <div className="w-full md:w-2/3">
+            <div className="bg-black text-white px-5 py-3 text-center md:text-left">
+              <h1 className="text-2xl font-bold">Welcome Back</h1>
+              <p className="text-gray-300 mt-2">Sign in to your account</p>
+            </div>
+
+            <div className="p-6">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-2">
+                  <div className="relative">
+                    <LucideMail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <input
+                      {...register('email')}
+                      name="email"
+                      placeholder="Email address"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+                  {errors.email && (
+                    <p className="text-sm text-red-500 px-2">{errors.email.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="relative">
+                    <LucideLock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <input
+                      {...register('password')}
+                      placeholder="Password"
+                      type="password"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent outline-none transition-all"
+                    />
+                  </div>
+                  {errors.password && (
+                    <p className="text-sm text-red-500 px-2">{errors.password.message}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="cursor-pointer w-full bg-black text-white py-3 rounded-lg flex items-center justify-center font-medium hover:bg-gray-800 transition-colors disabled:opacity-70"
+                >
+                  {loading ? <LucideLoader2 className="animate-spin h-5 w-5" /> : 'Sign in'}
+                </button>
+              </form>
+
+              {/* OTP button (keeps with the form on the left) */}
+              <div className="mt-6">
+                <button
+                  onClick={handleOtpLogin}
+                  disabled={otpLoading}
+                  className="cursor-pointer w-full border border-gray-300 text-gray-700 py-3 rounded-lg flex items-center justify-center font-medium hover:bg-gray-50 transition-colors disabled:opacity-70"
+                >
+                  {otpLoading ? <LucideLoader2 className="animate-spin h-5 w-5" /> : 'Sign in with OTP'}
+                </button>
+              </div>
+
+              <p className="mt-6 text-sm text-center md:text-left text-gray-600">
+                Don&apos;t have an account?{' '}
+                <a
+                  href={`/register?redirect=${redirect}`}
+                  className="text-black font-medium hover:underline"
+                >
+                  Register here
+                </a>
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Social / Google - visually separated on desktop */}
+          <div className="w-full md:w-1/3 border-t md:border-t-0 md:border-l border-gray-100">
+            <div className="p-6 h-full flex flex-col items-center justify-center">
+              <div className="text-sm text-gray-500 mb-4">Or continue with</div>
+
+              <button
+                onClick={handleGoogleLogin}
+                className="cursor-pointer w-full max-w-xs border border-gray-300 text-gray-700 py-3 rounded-lg flex items-center justify-center font-medium hover:bg-gray-50 transition-colors"
+              >
+                <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" aria-hidden>
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-1.02.68-2.32 1.09-3.71 1.09-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C4.01 20.07 7.56 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.56 1 4.01 3.93 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Continue with Google
+              </button>
+
+              <div className="mt-6 text-xs text-center text-gray-400 max-w-xs">
+                By continuing you agree to our <span className="underline">Terms</span> and <span className="underline">Privacy</span>.
+              </div>
+            </div>
+          </div>
         </div>
-        {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
-        <div className="relative">
-          <LucideLock className="absolute left-3 top-3 h-5 w-5 text-gray-500" />
-          <input
-            {...register('password')}
-            placeholder="Password"
-            type="password"
-            className="input w-full pl-10 border rounded-md"
-          />
-        </div>
-        {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-black text-white py-2 rounded-md flex items-center justify-center"
-        >
-          {loading ? <LucideLoader2 className="animate-spin h-5 w-5" /> : 'Login'}
-        </button>
-      </form>
-      <button
-        onClick={handleOtpLogin}
-        disabled={otpLoading}
-        className="w-full mt-4 bg-blue-600 text-white py-2 rounded-md flex items-center justify-center"
-      >
-        {otpLoading ? <LucideLoader2 className="animate-spin h-5 w-5" /> : 'Login with OTP'}
-      </button>
-      <button
-        onClick={handleGoogleLogin}
-        className="w-full mt-4 bg-gray-100 text-black py-2 rounded-md flex items-center justify-center gap-2"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-1.02.68-2.32 1.09-3.71 1.09-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C4.01 20.07 7.56 23 12 23z" />
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.56 1 4.01 3.93 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-        </svg>
-        Sign in with Google
-      </button>
-      <p className="mt-4 text-sm text-center">
-        Don&apos;t have an account?{' '}
-        <a href={`/register?redirect=${redirect}`} className="text-blue-600 underline">
-          Register here
-        </a>
-      </p>
-      <Toaster />
+      </div>
+
+      <Toaster position="top-center" />
     </div>
   );
 }

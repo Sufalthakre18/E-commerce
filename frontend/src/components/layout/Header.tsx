@@ -4,14 +4,14 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useCartStore } from '@/store/cart';
-import { ShoppingBag, X, LogOut } from 'lucide-react';
+import { ShoppingBag, X, LogOut, Package } from 'lucide-react';
 import { Source_Sans_3, Cinzel } from 'next/font/google';
 import { removeAuthToken } from '@/lib/utils/auth';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'] });
 const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
 
-type DropdownKey = 'MEN' | 'WOMEN' | 'HOME' | null;
+type DropdownKey = 'APPAREL' | 'HOME' | 'CREATIVE' | 'EDUCORE' | null;
 
 interface Category {
   title: string;
@@ -100,80 +100,150 @@ export default function Header() {
   }, [lastScrollY, activeDropdown, isMenuOpen]);
 
   const megaMenuData: MegaMenuData = {
-    MEN: {
+    APPAREL: {
       categories: [
         {
-          title: 'Clothing',
-          items: ['T-Shirts & Tanks', 'Shirts', 'Jeans', 'Pants', 'Shorts', 'Jackets', 'Blazers', 'Suits', 'Knitwear', 'Activewear'],
+          title: 'Men',
+          items: [
+            'OVERSIZED T SHIRTS',
+            'POLO',
+            'Hoodies',
+            'Tank Tops',
+            'Shorts',
+            'CAPS /HENKY',
+          ],
           image: 'https://images.unsplash.com/photo-1516826957135-700dedea698c?w=300&h=200&fit=crop',
         },
         {
-          title: 'Shoes',
-          items: ['Sneakers', 'Dress Shoes', 'Boots', 'Loafers', 'Sandals', 'Athletic'],
-          image: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=300&h=200&fit=crop',
-        },
-        {
-          title: 'Accessories',
-          items: ['Watches', 'Belts', 'Wallets', 'Bags', 'Sunglasses', 'Ties', 'Cufflinks'],
-          image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=300&h=200&fit=crop',
+          title: 'Women',
+          items: [
+            'OVERSIZED',
+            'HOODIES',
+            'Tote Bags',
+            'Hats/Caps/HANDBAND',
+          ],
+          image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300&h=200&fit=crop',
         },
       ],
       featured: {
-        title: 'New Collection',
-        subtitle: 'Spring 2025',
+        title: 'Apparel Highlights',
+        subtitle: 'Fresh drops & bestsellers',
         image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=500&fit=crop',
       },
     },
-    WOMEN: {
-      categories: [
-        {
-          title: 'Clothing',
-          items: ['Dresses', 'Tops & Blouses', 'Jeans', 'Pants', 'Skirts', 'Jackets', 'Coats', 'Knitwear', 'Activewear', 'Loungewear'],
-          image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300&h=200&fit=crop',
-        },
-        {
-          title: 'Shoes',
-          items: ['Heels', 'Flats', 'Sneakers', 'Boots', 'Sandals', 'Athletic'],
-          image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=300&h=200&fit=crop',
-        },
-        {
-          title: 'Accessories',
-          items: ['Handbags', 'Jewelry', 'Scarves', 'Sunglasses', 'Belts', 'Watches'],
-          image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=300&h=200&fit=crop',
-        },
-      ],
-      featured: {
-        title: 'Summer Essentials',
-        subtitle: 'New Arrivals',
-        image: 'https://images.unsplash.com/photo-1494790108755-2616c2b8dce2?w=400&h=500&fit=crop',
-      },
-    },
+
     HOME: {
       categories: [
-        // {
-        //   title: 'Living Room',
-        //   items: ['Sofas', 'Coffee Tables', 'Rugs', 'Lighting', 'Decor', 'Storage'],
-        //   image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=300&h=200&fit=crop',
-        // },
-        // {
-        //   title: 'Bedroom',
-        //   items: ['Bedding', 'Pillows', 'Throws', 'Furniture', 'Lighting'],
-        //   image: 'https://images.unsplash.com/photo-1540518614846-7eded1432cc6?w=300&h=200&fit=crop',
-        // },
+        {
+          title: 'All Décor',
+          items: [
+            'Wall Art',
+            'Canvas Prints',
+            'Posters','Stickers'
+
+          ],
+          image: 'https://images.unsplash.com/photo-1493663284031-b7e3aaa4cab7?w=300&h=200&fit=crop',
+        },
+        {
+          title: 'Stationery',
+          items: [
+            'Custom Notebooks & Journals',
+            'Phone Cases',
+          ],
+          image: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=300&h=200&fit=crop',
+        },
       ],
       featured: {
         title: 'Home Collection',
-        subtitle: 'Exciting products are on the way — stay tuned!',
-        image: 'https://images.unsplash.com/photo-1493663284031-b7e3aaa4cab7?w=400&h=500&fit=crop',
+        subtitle: 'All Décor & Stationery',
+        image: 'https://images.unsplash.com/photo-1505691723518-36a3b3d07a6f?w=400&h=500&fit=crop',
+      },
+    },
+
+    CREATIVE: {
+      categories: [
+        {
+          title: 'Design Assets & Mockups',
+          items: [
+            'Websites & Landing Pages',
+            'clones',
+            'Audio & Media Packs',
+          ],
+          image: 'https://images.unsplash.com/photo-1529059997563-6c3d0b6c0b98?w=300&h=200&fit=crop',
+        },
+        {
+          title: 'Templates & Marketing Kits',
+          items: [
+            'Landing Pages',
+            'Insta reels',
+            'Packs',
+          ],
+          image: 'https://images.unsplash.com/photo-1529059997563-6c3d0b6c0b98?w=300&h=200&fit=crop',
+        },
+        {
+          title: 'Audio & Media Packs',
+          items: [
+            'geopolitics poadcast',
+            'quikly',
+            'vocabulary',
+          ],
+          image: 'https://images.unsplash.com/photo-1529059997563-6c3d0b6c0b98?w=300&h=200&fit=crop',
+        },
+      ],
+      featured: {
+        title: 'Creative Tools',
+        subtitle: 'Power up your projects',
+        image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&h=500&fit=crop',
+      },
+    },
+
+    EDUCORE: {
+      categories: [
+        {
+          title: 'Study Planners & Trackers',
+          items: [
+            'jee',
+            'neet',
+            'nda',
+          ],
+          image: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=300&h=200&fit=crop',
+        },
+        {
+          title: 'Exam Prep Resources',
+          items: [
+            'scc notes',
+            '12th notes',
+            
+          ],
+          image: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=300&h=200&fit=crop',
+        },
+        {
+          title: 'Gamified Learning Packs',
+          items: [
+            'story books',
+            'Class-1st',
+            'Class-2nd',
+          ],
+          image: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=300&h=200&fit=crop',
+        },
+      ],
+      featured: {
+        title: 'EduCore',
+        subtitle: 'Learn smarter',
+        image: 'https://images.unsplash.com/photo-1554774853-aae3c3b61a0e?w=400&h=500&fit=crop',
       },
     },
   };
 
-  const navigationItems = useMemo(() => [
-    { label: 'MEN', href: '#', className: 'text-gray-900 hover:text-gray-700' },
-    { label: 'WOMEN', href: '#', className: 'text-gray-900 hover:text-gray-700' },
-    { label: 'HOME', href: '#', className: 'text-gray-900 hover:text-gray-700' },
-  ], []);
+  const navigationItems = useMemo(
+    () => [
+      { label: 'APPAREL', title: 'Apparel', href: '#', className: 'text-gray-900 hover:text-gray-700' },
+      { label: 'HOME', title: 'Home', href: '#', className: 'text-gray-900 hover:text-gray-700' },
+      { label: 'CREATIVE', title: 'Creative & Business', href: '#', className: 'text-gray-900 hover:text-gray-700' },
+      { label: 'EDUCORE', title: 'EDUCORE', href: '#', className: 'text-gray-900 hover:text-gray-700' },
+    ],
+    []
+  );
 
   const handleMouseEnter = (label: string): void => {
     if (dropdownTimeout) {
@@ -242,11 +312,11 @@ export default function Header() {
           <Link href="/profile" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
             Profile
           </Link>
-          {session.user.role === 'ADMIN' && (
-            <Link href="/admin" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
-              Admin
-            </Link>
-          )}
+
+          <Link href="/orders" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
+            Orders
+          </Link>
+
           <button
             onClick={handleLogout}
             className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 flex items-center gap-2`}
@@ -262,9 +332,7 @@ export default function Header() {
         <Link href="/login" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
           Login
         </Link>
-        <Link href="/register" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
-          Register
-        </Link>
+        
       </>
     );
   }, [session]);
@@ -276,19 +344,15 @@ export default function Header() {
           <Link href="/profile" title="Profile">
             <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Profile</span>
           </Link>
-          {session.user.role === 'ADMIN' && (
-            <Link href="/admin" title="Admin Dashboard">
-              <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Admin</span>
-            </Link>
-          )}
-          <button
-            onClick={handleLogout}
-            title="Logout"
-            className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light flex items-center gap-2`}
-          >
-            <LogOut className="w-5 h-5" />
-            Logout
-          </button>
+          <Link href="/orders" title="my orders">
+            <button
+              type="button"
+              className="relative flex items-center p-2 text-gray-800 hover:text-red-700 rounded-md transition-colors duration-200"
+            >
+              <Package className="size-5" />
+            </button>
+          </Link>
+
         </>
       );
     }
@@ -297,9 +361,7 @@ export default function Header() {
         <Link href="/login" title="Login">
           <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Login</span>
         </Link>
-        <Link href="/register" title="Register">
-          <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Register</span>
-        </Link>
+       
       </>
     );
   }, [session]);
@@ -307,9 +369,8 @@ export default function Header() {
   return (
     <div className="relative">
       <header
-        className={`fixed top-0 left-0 right-0 z-50 mx-auto max-w-[2560px] rounded-b-2xl px-2.5 lg:px-8 transition-all duration-300 ease-in-out ${
-          visible ? 'translate-y-0' : '-translate-y-full'
-        } ${scrolled ? 'py-2 bg-white shadow-md' : 'py-3 bg-transparent'}`}
+        className={`fixed top-0 left-0 right-0 z-50 mx-auto max-w-[2560px] rounded-b-2xl px-2.5 lg:px-8 transition-all duration-300 ease-in-out ${visible ? 'translate-y-0' : '-translate-y-full'
+          } ${scrolled ? 'py-2 bg-white shadow-md' : 'py-3 bg-transparent'}`}
       >
         {/* Mobile Header */}
         <div className="relative flex h-12 items-center justify-between lg:hidden">
@@ -350,9 +411,8 @@ export default function Header() {
                 >
                   <ShoppingBag className="size-6" />
                   <span
-                    className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${
-                      cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
-                    } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
+                    className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
+                      } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
                   >
                     {cartItemCount > 99 ? '99+' : cartItemCount}
                   </span>
@@ -382,12 +442,12 @@ export default function Header() {
               </Link>
             </div>
 
-            <nav className="flex flex-1 justify-center gap-10" role="navigation">
+            <nav className="flex flex-2 justify-center gap-10" role="navigation">
               {navigationItems.map((item) => (
                 <div key={item.label} className="relative" onMouseEnter={() => handleMouseEnter(item.label)} onMouseLeave={handleMouseLeave}>
                   <Link href={item.href}>
                     <span className={`relative text-sm ${sourceSansPro.className} font-light tracking-[0.2em] uppercase transition-colors duration-200 nav-item cursor-pointer ${item.className}`}>
-                      {item.label}
+                      {item.title}
                     </span>
                   </Link>
                 </div>
@@ -408,9 +468,8 @@ export default function Header() {
                     >
                       <ShoppingBag className="size-5" />
                       <span
-                        className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${
-                          cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
-                        } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
+                        className={`absolute -top-1 -right-1 flex ${cartItemCount > 9 ? 'size-5' : 'size-4'} items-center justify-center rounded-full bg-red-700 text-[10px] text-white transition-all duration-300 ${cartItemCount > 0 ? 'opacity-100 scale-100' : 'opacity-0 scale-0'
+                          } ${pulseBadge ? 'animate-pulse-cart' : ''}`}
                       >
                         {cartItemCount > 99 ? '99+' : cartItemCount}
                       </span>
@@ -433,9 +492,8 @@ export default function Header() {
 
         {/* Mobile Menu (Full-screen overlay) */}
         <div
-          className={`fixed inset-0 z-40 bg-white transition-transform duration-500 ease-in-out lg:hidden ${
-            isMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
+          className={`fixed inset-0 z-40 bg-white transition-transform duration-500 ease-in-out lg:hidden ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
         >
           <div className="flex h-12 items-center justify-between px-2.5">
             <button className="p-2" onClick={toggleMenu} aria-label="Close menu" data-formignore="true">
@@ -456,7 +514,7 @@ export default function Header() {
                     style={{ fontFamily: cinzel.style.fontFamily }}
                     data-formignore="true"
                   >
-                    <span>{item.label}</span>
+                    <span>{item.title}</span>
                     {megaMenuData[item.label as keyof MegaMenuData] && (
                       <svg
                         className={`w-5 h-5 transition-transform duration-200 text-gray-600 ${activeDropdown === item.label ? 'rotate-180' : ''}`}
@@ -501,11 +559,9 @@ export default function Header() {
       {/* Mega Menu Dropdown */}
       {activeDropdown && megaMenuData[activeDropdown] && (
         <div
-          className={`fixed left-0 right-0 z-40 bg-white shadow-2xl border-t border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${
-            scrolled ? 'top-12' : 'top-16'
-          } ${visible ? 'translate-y-0' : '-translate-y-full'} ${
-            isDropdownVisible ? 'max-h-[600px] opacity-100 transform translate-y-0' : 'max-h-0 opacity-0 transform -translate-y-4'
-          }`}
+          className={`fixed left-0 right-0 z-40 bg-white shadow-2xl border-t border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${scrolled ? 'top-12' : 'top-16'
+            } ${visible ? 'translate-y-0' : '-translate-y-full'} ${isDropdownVisible ? 'max-h-[600px] opacity-100 transform translate-y-0' : 'max-h-0 opacity-0 transform -translate-y-4'
+            }`}
           onMouseEnter={handleDropdownMouseEnter}
           onMouseLeave={handleDropdownMouseLeave}
         >

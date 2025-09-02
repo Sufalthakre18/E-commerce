@@ -1,16 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { Cinzel, Source_Sans_3 } from 'next/font/google';
+import { Bebas_Neue, Source_Sans_3 } from 'next/font/google';
 
-const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'], variable: '--font-cinzel' });
 const sourceSans = Source_Sans_3({ subsets: ['latin'], weight: ['400'], variable: '--font-source-sans' });
+const bebasNeue = Bebas_Neue({subsets: ['latin-ext'],weight: '400'});
 
 export default function ThankYou() {
   return (
     <div className={`min-h-screen bg-gradient-to-b from-gray-100 to-white flex items-center justify-center p-4 ${sourceSans.className}`}>
       <div className="bg-white rounded-lg shadow-md p-6 max-w-sm w-full text-center">
-        <h1 className={`${cinzel.className} text-2xl font-semibold text-gray-800 mb-3`}>Thank You!</h1>
+        <h1 className={`${bebasNeue.className} text-2xl font-semibold text-gray-800 mb-3`}>Thank You!</h1>
         <p className="text-gray-600 text-sm mb-5">Order placed successfully.</p>
         <div className="flex justify-center gap-3">
           <Link

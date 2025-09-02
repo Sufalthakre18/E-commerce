@@ -1,5 +1,6 @@
-import HomeLandingPage from "@/components/homeCat/Hero";
+import HomeCatLandingPage from "@/components/home/Hero";
 
-export default function HomeCatPage() {
-  return <HomeLandingPage/>;
+
+export default function HomePage() {
+  return <HomeCatLandingPage/>;
 }

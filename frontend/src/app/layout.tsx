@@ -8,7 +8,7 @@ import './globals.css';
 import { usePathname } from 'next/navigation';
 
 
-const noHeaderRoutes = ['/admin', '/cart'];
+const noHeaderRoutes = ['/admin', '/cart','/checkout'];
 
 export default function RootLayout({
   children,

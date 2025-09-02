@@ -1,4 +1,3 @@
-// src/store/cart.ts
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
@@ -10,9 +9,9 @@ export type CartItem = {
   image: string;
   sizeId: string | null;
   sizeLabel: string;
-  variantId: string;
+  variantId: string | null;
   color: string;
-  productType: 'physical' | 'digital'; // New field
+  productType: string | 'physical' | 'digital';
 };
 
 type CartStore = {
@@ -28,7 +27,8 @@ type CartStore = {
     totalItems: number;
     totalPrice: number;
   };
-  isDigitalOnly: () => boolean; // New helper
+  isDigitalOnly: () => boolean;
+  mergeCart: (newItems: CartItem[]) => void; // New method
 };
 
 export const useCartStore = create<CartStore>()(
@@ -93,7 +93,32 @@ export const useCartStore = create<CartStore>()(
         };
       },
 
-      isDigitalOnly: () => get().items.every((item) => item.productType === 'digital'), // New method
+      isDigitalOnly: () => get().items.every((item) => item.productType === 'digital'),
+
+      mergeCart: (newItems) => {
+        const currentItems = get().items;
+        const mergedItems = [...currentItems];
+
+        newItems.forEach((newItem) => {
+          const exists = mergedItems.find(
+            (i) => i.id === newItem.id && i.sizeId === newItem.sizeId
+          );
+          if (exists) {
+            mergedItems.forEach((item, index) => {
+              if (item.id === newItem.id && item.sizeId === newItem.sizeId) {
+                mergedItems[index] = {
+                  ...item,
+                  quantity: item.quantity + newItem.quantity,
+                };
+              }
+            });
+          } else {
+            mergedItems.push(newItem);
+          }
+        });
+
+        set({ items: mergedItems });
+      },
     }),
     {
       name: 'cart-storage',

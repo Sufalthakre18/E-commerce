@@ -46,25 +46,36 @@ export default function OtpPage() {
   };
 
   return (
-    <div className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4">Verify OTP</h1>
-      <p className="mb-4">OTP sent to {email}</p>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <input
-          {...register('otp')}
-          placeholder="Enter 6-digit OTP"
-          className="input w-full border rounded-md"
-        />
-        {errors.otp && <p className="text-sm text-red-500">{errors.otp.message}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-black text-white py-2 rounded-md flex items-center justify-center"
-        >
-          {loading ? <LucideLoader2 className="animate-spin h-5 w-5" /> : 'Verify'}
-        </button>
-      </form>
-      <Toaster />
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="w-full max-w-xs">
+        <div className="text-center mb-6">
+          <h1 className="text-xl font-medium mb-2">Verify OTP</h1>
+          <p className="text-gray-600 text-sm">Sent to {email}</p>
+        </div>
+        
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <input
+              {...register('otp')}
+              placeholder="Enter 6-digit code"
+              className="w-full px-3 py-2 border-b border-gray-300 focus:border-black outline-none text-center text-lg tracking-widest"
+              maxLength={6}
+            />
+            {errors.otp && (
+              <p className="text-xs text-red-500 mt-1 text-center">{errors.otp.message}</p>
+            )}
+          </div>
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-black text-white py-2 text-sm hover:bg-gray-800 transition-colors disabled:opacity-70"
+          >
+            {loading ? <LucideLoader2 className="animate-spin h-4 w-4 mx-auto" /> : 'Verify'}
+          </button>
+        </form>
+      </div>
+      <Toaster position="top-center" />
     </div>
   );
 }

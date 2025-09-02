@@ -205,8 +205,6 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
 
     return (
         <div className="w-full md:col-span-2 relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white">
-
-
             <div
                 className="relative w-full min-h-[800px] sm:min-h-[800px] md:min-h-[700px]"
 
@@ -226,9 +224,9 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
                         }}
                     >
                         <div className="flex w-full flex-col-reverse md:flex-row md:max-h-[90vh] min-h-[600px] md:min-h-[700px] flex-shrink-0">
-                            
+
                             <div className="relative md:my-auto aspect-square overflow-hidden md:w-1/2 bg-gradient-to-br from-amber-50 to-yellow-50">
-                                
+
                                 <div className="absolute inset-0 opacity-30">
                                     <div
                                         className="absolute inset-0"
@@ -258,7 +256,7 @@ const LuxuryProductCarousel = memo(function LuxuryProductCarousel() {
                                     <div className="flex flex-col items-center justify-center gap-8 md:gap-10 max-w-sm">
 
 
-                                        
+
                                         <div className="mt-20  flex flex-row gap-4 w-full max-w-xs">
                                             <Link href={product.shopMenLink} className="group text-xs uppercase tracking-[0.2em] text-black font-light border-b border-black/20 pb-1 hover:border-black active:border-black transition-all duration-300 text-center">
                                                 <span>Shop Men</span>
@@ -356,7 +354,7 @@ const CategoryCard = memo(function CategoryCard({
                     className="absolute inset-0 pointer-events-none transition-all duration-300"
                     style={{
                         background: hovered
-                            ? 'linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.4), rgba(0,0,0,0.1))'
+                            ? 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.3), transparent)'
                             : 'linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0.3), transparent)'
                     }}
                 />
@@ -554,10 +552,10 @@ export default function HeroSection2() {
             {/* Category + Carousel Section */}
             <section
                 ref={sectionRef}
-                className="relative mx-auto max-w-7xl px sm:px-6 lg:px-8 py-14"
+                className="relative mx-auto max-w-7xl px sm:px-2 lg:px-4 py-14"
                 aria-label="LUXE Collections"
             >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                     {categoryBlocks.map((block, index) => {
                         // Insert carousel after 2nd item
                         if (index === 2) {

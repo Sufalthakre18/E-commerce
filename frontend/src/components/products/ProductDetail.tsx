@@ -1,7 +1,9 @@
+// src/components/ProductDetail.tsx
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Star, Share2, Truck, Shield, RotateCcw, ChevronLeft, ChevronRight, Plus, Minus, ShoppingBag, Zap, ChevronDown } from 'lucide-react';
+import Link from 'next/link';
+import { Star, Share2, Truck, Shield, RotateCcw, ChevronLeft, ChevronRight, Plus, Minus, ShoppingBag, Zap, ChevronDown, Heart } from 'lucide-react';
 import { Cinzel, Unica_One, Raleway, Source_Sans_3 } from 'next/font/google';
 import { useCartStore } from '@/store/cart';
 import { toast } from 'sonner';
@@ -51,15 +53,24 @@ interface Product {
   details: string | null;
   price: number;
   stock: number;
-  type: string;
-  productType: string; // Added to support digital/physical distinction
+  type: string | null;
+  productType: string; // digital | physical
   images: ProductImage[];
-  sizes: ProductSize[];
-  variants: ProductVariant[];
+  sizes?: ProductSize[];
+  variants?: ProductVariant[];
+  categoryId?: string;
+  category?: { id: string; name: string };
 }
 
 interface ProductDetailProps {
   product: Product;
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+  return array
+    .map((item) => ({ item, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ item }) => item);
 }
 
 const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
@@ -86,6 +97,44 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
 
   const isDigital = product.productType === 'digital';
 
+  // Similar products state + carousel refs
+  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateCarouselButtons = () => {
+    const el = carouselRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  };
+
+  // Helper: escape HTML to avoid XSS, then linkify URLs and convert newlines to <br/>
+  const escapeHtml = (str: string) =>
+    str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const linkify = (raw?: string) => {
+    if (!raw) return '';
+    // 1) escape user input (prevents XSS)
+    const escaped = escapeHtml(raw);
+    // 2) convert newlines to <br/>
+    const withBreaks = escaped.replace(/\r\n|\n/g, '<br/>');
+    // 3) replace URLs (http(s)://... or www....) with anchor tags
+    const urlRegex = /(https?:\/\/[^\s<]+)|(www\.[^\s<]+)/g;
+    return withBreaks.replace(urlRegex, (match) => {
+      const href = match.startsWith('http') ? match : `https://${match}`;
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-sky-500 underline">${match}</a>`;
+    });
+  };
+
+  // Fetch reviews
   const fetchReviews = async () => {
     try {
       const reviewData = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/reviews/product/${product.id}`, {
@@ -108,6 +157,93 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
   useEffect(() => {
     fetchReviews();
   }, [product.id]);
+
+  // Fetch similar products (by type -> categoryId -> productType fallback)
+  useEffect(() => {
+    let canceled = false;
+
+    const fetchSimilar = async () => {
+      try {
+        setSimilarLoading(true);
+        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products`);
+        const list: Product[] = data?.products || data?.data?.products || [];
+        if (!Array.isArray(list)) {
+          if (!canceled) setSimilarProducts([]);
+          return;
+        }
+
+        const keyType = product.type?.trim() ?? null;
+        const keyCategory = product.categoryId ?? product.category?.id ?? null;
+
+        let filtered: Product[] = [];
+        if (keyType) {
+          filtered = list.filter((p) => p.id !== product.id && p.type && p.type.trim() === keyType);
+        }
+        if (filtered.length === 0 && keyCategory) {
+          filtered = list.filter((p) => p.id !== product.id && (p.categoryId === keyCategory || p.category?.id === keyCategory));
+        }
+        if (filtered.length === 0) {
+          filtered = list.filter((p) => p.id !== product.id && p.productType === product.productType);
+        }
+
+        if (!canceled) {
+          const shuffled = shuffleArray(filtered);
+          setSimilarProducts(shuffled.slice(0, 12)); // random selection
+        }
+      } catch (err) {
+        console.error('Error fetching similar products:', err);
+        if (!canceled) setSimilarProducts([]);
+      } finally {
+        if (!canceled) setSimilarLoading(false);
+      }
+    };
+
+    fetchSimilar();
+    return () => {
+      canceled = true;
+    };
+  }, [product.id, product.type, product.categoryId, product.productType, product.category]);
+
+  useEffect(() => {
+    // attach resize/scroll listeners to update nav button state
+    const el = carouselRef.current;
+    updateCarouselButtons();
+    if (!el) return;
+    const onScroll = () => updateCarouselButtons();
+    const onResize = () => updateCarouselButtons();
+    el.addEventListener('scroll', onScroll);
+    window.addEventListener('resize', onResize);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [similarProducts]);
+
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    const el = carouselRef.current;
+    if (!el) return;
+    // scroll by visible width minus small gap for overlap
+    const offset = Math.round(el.clientWidth * 0.9);
+    const target = direction === 'left' ? el.scrollLeft - offset : el.scrollLeft + offset;
+    el.scrollTo({ left: target, behavior: 'smooth' });
+  };
+
+  // Touch swipe support for carousel (optional)
+  const touchStartX = useRef<number | null>(null);
+  const handleCarouselTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleCarouselTouchEnd = (e: React.TouchEvent) => {
+    const start = touchStartX.current;
+    if (start == null) return;
+    const end = e.changedTouches[0].clientX;
+    const delta = start - end;
+    if (Math.abs(delta) > 50) {
+      if (delta > 0) scrollCarousel('right');
+      else scrollCarousel('left');
+    }
+    touchStartX.current = null;
+  };
 
   const nextImage = () => {
     const images = selectedVariant?.images || product.images;
@@ -292,16 +428,18 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
               <h1 className={`lg:px-8 py-1 text-3xl font-light text-gray-900 tracking-tight ${cinzel.className}`}>
                 {product.name || 'Product Name'}
               </h1>
-              <p
+
+              {/* DESCRIPTION - linkified and safe */}
+              <div
                 className={`${sourceSans.className} lg:px-8 text-gray-700 leading-relaxed capitalize`}
                 style={{
                   fontSize: '.7625rem',
                   fontFamily: '"Source Sans Pro", Helvetica, Arial, sans-serif',
                   fontWeight: 400,
                 }}
-              >
-                {product.description || 'No description available'}
-              </p>
+                dangerouslySetInnerHTML={{ __html: linkify(product.description || 'No description available') }}
+              />
+
               <div className="lg:px-8 flex items-baseline space-x-3">
                 <span className={`${unica.className} text-lg font- text-gray-900`}>
                   {formatPrice(selectedVariant?.price || product.price)}
@@ -314,6 +452,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 )}
               </div>
             </div>
+
             {product.variants && product.variants.length > 0 && (
               <div className="space-y-4 lg:px-8">
                 <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">
@@ -337,6 +476,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               </div>
             )}
+
             {!isDigital && product.sizes && product.sizes.length > 0 && (
               <div className="space-y-4 lg:px-8">
                 <div className="flex items-center justify-between">
@@ -362,11 +502,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               </div>
             )}
+
             {isDigital && (
               <div className="space-y-4 lg:px-8">
                 <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Download Information</h3>
                 <p className={`${sourceSans.className} text-sm text-gray-600`}>
-                  This is a digital product. After purchase, you’ll receive an email with download links and access them from your orders page.
+                  This is a digital product. After purchase, you'll receive an email with download links and access them from your orders page.
                 </p>
               </div>
             )}
@@ -425,6 +566,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 <span className="text-xs text-gray-600 font-medium">{isDigital ? 'Secure Download' : '2 Year Warranty'}</span>
               </div>
             </div>
+
             <div className="border-t border-gray-200">
               <button
                 onClick={() => setDetailsOpen(!detailsOpen)}
@@ -436,11 +578,14 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
               {detailsOpen && (
                 <div className={`${sourceSans.className} prose prose-sm max-w-none text-gray-600`}>
                   <div
-                    dangerouslySetInnerHTML={{ __html: product.details ? product.details.replace(/\r\n/g, '<br />') : 'No details available.' }}
+                    dangerouslySetInnerHTML={{
+                      __html: product.details ? linkify(product.details) : 'No details available.',
+                    }}
                   />
                 </div>
               )}
             </div>
+
             {reviews.length > 0 && (
               <div className="border-t border-gray-200">
                 <button
@@ -491,13 +636,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                             {new Date(review.createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        <p className={`${sourceSans.className} text-gray-600`}>{review.comment}</p>
+                        {/* review comment - linkified and safe */}
+                        <p className={`${sourceSans.className} text-gray-600`} dangerouslySetInnerHTML={{ __html: linkify(review.comment) }} />
                       </div>
                     ))}
                   </div>
                 )}
               </div>
             )}
+
             {!isDigital && (
               <div className="border-t border-gray-200">
                 <button
@@ -552,6 +699,111 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Premium Similar Products Section */}
+        <div className="mt-16 pt-12 border-t border-gray-200">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className={`${cinzel.className} text-2xl md:text-3xl font-semibold text-gray-900`}>You might also like</h2>
+             </div>
+            <div className="hidden md:flex items-center space-x-3">
+              <button
+                onClick={() => scrollCarousel('left')}
+                disabled={!canScrollLeft}
+                className="p-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                aria-label="Previous products"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => scrollCarousel('right')}
+                disabled={!canScrollRight}
+                className="p-3 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                aria-label="Next products"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {similarLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-[3/4] bg-gray-200 rounded-lg mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                </div>
+              ))}
+            </div>
+          ) : similarProducts.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-lg">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center">
+                <ShoppingBag className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className={`${sourceSans.className} text-gray-500`}>
+                No similar products found at the moment.
+              </p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div
+                ref={carouselRef}
+                onTouchStart={handleCarouselTouchStart}
+                onTouchEnd={handleCarouselTouchEnd}
+                className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-6 px-1"
+                style={{ 
+                  WebkitOverflowScrolling: 'touch',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
+                }}
+              >
+                <style jsx>{`
+                  .flex.overflow-x-auto::-webkit-scrollbar {
+                    display: none;
+                  }
+                `}</style>
+                {similarProducts.map((p) => (
+                  <div key={p.id} className="flex-shrink-0 snap-start w-[45%] sm:w-[30%] md:w-56 lg:w-64 xl:w-72 group">
+                    <Link href={`/products/${p.id}`}>
+                      <div className="bg-white rounded-sm overflow-hidden transition-all duration-300 hover:shadow-sm border border-gray-100">
+                        {/* Product Image */}
+                        <div className="relative aspect-[3/4] overflow-hidden bg-gray-50">
+                          <img 
+                            src={p.images?.[0]?.url || ''} 
+                            alt={p.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          
+                        </div>
+                        
+                        {/* Product Info */}
+                        <div className="p-4">
+                          <div className="mb-2">
+                            <h3 className={`${unica.className} font-medium text-gray-900 text-sm leading-tight line-clamp-2`}>
+                              {p.name}
+                            </h3>
+                            <p className={`${sourceSans.className} text-xs text-gray-500 mt-1`}>
+                              {p.type || p.category?.name || p.productType}
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mt-3">
+                            <span className={`${unica.className} text-lg font-semibold text-gray-900`}>
+                              {formatPrice(p.price)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

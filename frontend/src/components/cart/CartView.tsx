@@ -9,11 +9,11 @@ import { Trash2, Plus, Minus, ShoppingBag, Loader2 } from 'lucide-react';
 import { getAuthToken } from '@/lib/utils/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Cinzel, Source_Sans_3 } from 'next/font/google';
+import {  Source_Sans_3,Bebas_Neue } from 'next/font/google';
 import { toast } from 'sonner';
 
-const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'] });
 const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
+const bebasNeue = Bebas_Neue({subsets: ['latin-ext'],weight: '400'});
 
 export function CartView() {
   const router = useRouter();
@@ -76,7 +76,7 @@ export function CartView() {
     return (
       <div className={`flex flex-col items-center justify-center p-8 text-center min-h-[60vh] bg-white rounded-lg shadow-xl ${sourceSansPro.className}`}>
         <ShoppingBag className="w-20 h-20 text-gray-200 mb-6" />
-        <h2 className={`text-3xl font-bold mb-2 text-gray-900 ${cinzel.className}`}>Your cart is empty</h2>
+        <h2 className={`text-3xl font-bold mb-2 text-gray-600 ${bebasNeue.className}`}>Your cart is empty</h2>
         <p className="text-lg text-gray-500 mb-8 max-w-sm">
           Looks like you haven't added anything to your cart yet. Explore our curated collections.
         </p>
@@ -92,7 +92,7 @@ export function CartView() {
 
   return (
     <div className={`container mx-auto mt-5 lg:mt-1 p-4 md:p-8 lg:p-12 ${sourceSansPro.className}`}>
-      <h1 className={`text-4xl md:text-5xl font-bold text-gray-900 md:mb-12 border-b-2 pt-2 ${cinzel.className}`}>Shopping Cart</h1>
+      <h1 className={`text-4xl md:text-5xl font-bold text-gray-600 md:mb-12 border-b-2 pt-2 ${bebasNeue.className}`}>Shopping Cart</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-2">
@@ -135,10 +135,7 @@ export function CartView() {
                           <span className="font-medium">Color:</span> {item.color}
                         </span>
                       )}
-                      <span>
-                        <span className="font-medium">Type:</span>{' '}
-                        {item.productType === 'digital' ? 'Digital' : 'Physical'}
-                      </span>
+                      
                     </div>
                   </div>
 
@@ -200,7 +197,7 @@ export function CartView() {
 
         <div className="lg:col-span-1 h-fit sticky top-4">
           <div className="bg-gray-50 rounded-lg p-8 border border-gray-200">
-            <h2 className={`text-2xl font-bold mb-6 text-gray-900 ${cinzel.className}`}>Order Summary</h2>
+            <h2 className={`text-2xl font-bold mb-6 text-gray-700 ${bebasNeue.className}`}>Order Summary</h2>
             
             <div className="flex justify-between text-lg text-gray-700 mb-2">
               <span>Subtotal ({totalItems()} items)</span>
