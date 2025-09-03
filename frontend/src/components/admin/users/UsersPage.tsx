@@ -37,7 +37,7 @@ export default function UsersPage() {
     const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     return (
-        <div className="px-3 sm:px-0">
+        <div className="mt-14 px-3 sm:px-0">
             <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Users</h2>
 
             {/* Filters */}

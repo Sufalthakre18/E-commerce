@@ -97,7 +97,7 @@ const StudyPage: React.FC = () => {
           },
         });
         const studyProducts = data.products.filter(
-          (product) => product.category.parent?.name === 'eduCore' && product.category.name === 'Study Planners & Trackers',
+          (product) => product.category.parent?.name === 'EduCore' && product.category.name === 'Study Planners & Trackers',
         );
         setProducts(studyProducts);
       } catch (err) {

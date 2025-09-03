@@ -74,7 +74,7 @@ export default function RefundsPage() {
   };
 
   return (
-    <div className="p-4">
+    <div className="mt-14 p-4">
       <h2 className="text-xl font-semibold mb-4">Refund Details</h2>
 
       <div className="w-full overflow-x-auto bg-white rounded shadow">

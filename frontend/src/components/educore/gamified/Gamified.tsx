@@ -97,7 +97,7 @@ const GamifiedPage: React.FC = () => {
           },
         });
         const gamifiedProducts = data.products.filter(
-          (product) => product.category.parent?.name === 'eduCore' && product.category.name === 'Gamified Learning',
+          (product) => product.category.parent?.name === 'EduCore' && product.category.name === 'Gamified Learning Packs',
         );
         setProducts(gamifiedProducts);
       } catch (err) {

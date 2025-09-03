@@ -281,5 +281,5 @@ model OTP {
   userId     String?
   user       User?     @relation("UserOTPs", fields: [userId], references: [id])
   name       String?
-  password   String?
+  password   String
 }

@@ -71,10 +71,10 @@ export default function UserOrdersPage() {
   }
 
   return (
-    <div className="px-3 sm:px-0">
+    <div className="mt-14 px-3 sm:px-0">
       <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
         <h2 className="text-lg sm:text-xl font-semibold">User Orders</h2>
-        <Link href="/admin/users" className="text-blue-600 hover:underline text-sm sm:text-base self-start sm:self-auto">
+        <Link href="/admin/users" className="mt-6 text-blue-600 hover:underline text-sm sm:text-base self-start sm:self-auto">
           ← Back to Users
         </Link>
       </div>

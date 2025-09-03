@@ -99,7 +99,7 @@ const WomanApparelPage: React.FC = () => {
           },
         });
         const womanApparelProducts = data.products.filter(
-          (product) => product.category.parent?.name === 'Apparel' && product.category.name === 'Women-Apparel',
+          (product) => product.category.parent?.name === 'Apparel' && product.category.name === 'Woman-Apparel',
         );
         setProducts(womanApparelProducts);
       } catch (err) {

@@ -58,7 +58,7 @@ interface ApiResponse {
 
 // Configuration constants
 const manApparelType = [
-  "Oversized","Polo","Hoodies","Tank tops","Shorts","Caps"
+  "Oversized Tees","Polo","Hoodies","Tank tops","Shorts","Caps"
 ];
 
 const sortOptions = [

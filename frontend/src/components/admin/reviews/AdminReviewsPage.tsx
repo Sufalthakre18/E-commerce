@@ -57,7 +57,7 @@ export default function AdminReviewsPage() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-4">All Reviews</h2>
+      <h2 className="mt-14 text-xl font-semibold mb-4">All Reviews</h2>
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white border rounded shadow-sm">
           <thead>

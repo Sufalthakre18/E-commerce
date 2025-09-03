@@ -97,7 +97,7 @@ const ResourcesPage: React.FC = () => {
           },
         });
         const resourcesProducts = data.products.filter(
-          (product) => product.category.parent?.name === 'eduCore' && product.category.name === 'Exam Prep Resources',
+          (product) => product.category.parent?.name === 'EduCore' && product.category.name === 'Exam Prep Resources',
         );
         setProducts(resourcesProducts);
       } catch (err) {

@@ -483,7 +483,7 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white min-h-screen">
+    <div className="max-w-5xl mt-14 mx-auto p-6 bg-white min-h-screen">
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => router.push('/admin/products')}

@@ -18,7 +18,7 @@ export default function RefundDetailPage() {
   if (!refund) return <div>Loading...</div>;
 
   return (
-    <div className="p-6 bg-white rounded shadow">
+    <div className="mt-14 p-6 bg-white rounded shadow">
       <h2 className="text-xl font-bold mb-4">Refund Details</h2>
       <p><strong>Order ID:</strong> {refund.orderId}</p>
       <p><strong>Full Name:</strong> {refund.fullName}</p>
