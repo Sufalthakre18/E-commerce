@@ -1,5 +1,5 @@
-import MensAccesoriesCollection from "@/components/apparel/man/ManApparel";
+import MensApparelCollection from "@/components/apparel/man/ManApparel";
 
-export default function MensAccessories(){
-    return <MensAccesoriesCollection />;
+export default function MensApparel(){
+    return <MensApparelCollection />;
 }

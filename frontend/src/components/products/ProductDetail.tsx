@@ -412,17 +412,17 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
             </div>
           </div>
           <div className="space-y-8">
-            <div className="lg:pt-6">
-              <nav className="lg:py-5 text-sm text-gray-700 border-b border-gray-200 capitalize">
+            <div className="lg:pt-11">
+              <nav className="lg:py-5 text-sm text-gray-500 border-b border-gray-200 capitalize">
                 <div
                   className={`${sourceSans.className} max-w-7xl mx-auto`}
                   style={{
                     fontSize: '.7625rem',
                     fontFamily: '"Source Sans Pro", Helvetica, Arial, sans-serif',
-                    fontWeight: 400,
+                    fontWeight: 300,
                   }}
                 >
-                  Home / {isDigital ? 'Digital Products' : 'Clothing'} / {product.type || 'Products'} / {product.name}
+                  Home/{product.type || 'Products'}/{product.name}
                 </div>
               </nav>
               <h1 className={`lg:px-8 py-1 text-3xl font-light text-gray-900 tracking-tight ${cinzel.className}`}>

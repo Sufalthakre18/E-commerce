@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import FilterBar from '@/components/ui/productsui/FilterBar';
 import ProductsGrid from '@/components/ui/productsui/ProductsGrid';
@@ -14,7 +13,6 @@ interface ProductImage {
   productId?: string;
   variantId?: string;
 }
-
 interface ProductVariant {
   id: string;
   color: string;
@@ -23,7 +21,6 @@ interface ProductVariant {
   productId: string;
   images: ProductImage[];
 }
-
 interface Category {
   id: string;
   name: string;
@@ -34,7 +31,6 @@ interface Category {
     parentId: string | null;
   };
 }
-
 interface Product {
   id: string;
   name: string;
@@ -48,7 +44,6 @@ interface Product {
   category: Category;
   variants: ProductVariant[];
 }
-
 interface ApiResponse {
   products: Product[];
   total: number;
@@ -58,9 +53,8 @@ interface ApiResponse {
 
 // Configuration constants
 const packsType = [
- 'Sound Effects', 'Music Tracks', 'Stock Video', 'Animations', 'Podcast Kits'
+  'Sound Effects', 'Music Tracks', 'Stock Video', 'Animations', 'Podcast Kits'
 ];
-
 const sortOptions = [
   { value: 'featured', label: 'Featured' },
   { value: 'price-low', label: 'Price: Low to High' },
@@ -73,14 +67,15 @@ const Packs: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  
   // Filter and UI states
   const [selectedType, setSelectedType] = useState<string>('');
   const [sortBy, setSortBy] = useState('featured');
   const [showFilters, setShowFilters] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // For the input field
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState(''); // For actual filtering
   const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 });
-
+  
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -101,35 +96,53 @@ const Packs: React.FC = () => {
         setLoading(false);
       }
     };
-
     fetchProducts();
   }, []);
+
+  // Handle search submission
+  const handleSearchSubmit = useCallback(() => {
+    setAppliedSearchQuery(searchQuery);
+    setCurrentPage(1); // Reset to first page when searching
+  }, [searchQuery]);
+
+  // Handle Enter key press in search input
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit();
+    }
+  }, [handleSearchSubmit]);
 
   // Process and filter products
   const processedProducts = useMemo(() => {
     let filtered = [...products];
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (product) =>
-          product.name.toLowerCase().includes(query) ||
-          product.description.toLowerCase().includes(query) ||
-          product.type?.toLowerCase().includes(query),
-      );
+    
+    // Search filter - now uses appliedSearchQuery instead of searchQuery
+    if (appliedSearchQuery) {
+      const query = appliedSearchQuery.toLowerCase().trim();
+      if (query) {
+        filtered = filtered.filter(
+          (product) =>
+            product.name.toLowerCase().includes(query) ||
+            product.description.toLowerCase().includes(query) ||
+            product.type?.toLowerCase().includes(query),
+        );
+      }
     }
-
+    
+    // Type filter
     if (selectedType) {
       filtered = filtered.filter((product) => product.type?.toLowerCase() === selectedType.toLowerCase());
     }
-
+    
+    // Price range filter
     filtered = filtered.filter((product) => {
       const prices = [product.price, ...product.variants.map((v) => v.price)];
       const minPrice = Math.min(...prices);
       const maxPrice = Math.max(...prices);
       return maxPrice >= priceRange.min && minPrice <= priceRange.max;
     });
-
+    
+    // Sorting
     switch (sortBy) {
       case 'price-low':
         filtered.sort((a, b) => {
@@ -154,16 +167,15 @@ const Packs: React.FC = () => {
       default:
         break;
     }
-
+    
     return filtered;
-  }, [products, selectedType, sortBy, searchQuery, priceRange]);
+  }, [products, selectedType, sortBy, appliedSearchQuery, priceRange]);
 
   // Pagination logic
   const { totalPages, paginatedProducts } = useMemo(() => {
     const totalPages = Math.ceil(processedProducts.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedProducts = processedProducts.slice(startIndex, startIndex + itemsPerPage);
-
     return {
       totalPages,
       paginatedProducts,
@@ -178,6 +190,7 @@ const Packs: React.FC = () => {
   const clearFilters = useCallback(() => {
     setSelectedType('');
     setSearchQuery('');
+    setAppliedSearchQuery('');
     setPriceRange({ min: 0, max: 10000 });
   }, []);
 
@@ -225,17 +238,56 @@ const Packs: React.FC = () => {
     );
   }
 
-  // No products state
+  // No products state - Updated with improved logic
   if (processedProducts.length === 0 && !loading) {
+    // Case 1: User performed a search but no products were found
+    if (appliedSearchQuery.trim() !== '') {
+      return (
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-3xl font-light text-gray-900 mb-4">No products found</h2>
+            <p className="text-gray-600 mb-8">
+              We couldn't find any products matching "{appliedSearchQuery}"
+            </p>
+            <button
+              onClick={clearFilters}
+              className="bg-gray-900 text-white px-8 py-3 text-sm font-medium tracking-wide hover:bg-gray-800 transition-colors duration-300"
+            >
+              CLEAR SEARCH
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    // Case 2: No products exist at all and no search was performed
+    if (products.length === 0) {
+      return (
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-5xl md:text-7xl font-semibold text-gray-900 mb-6 tracking-tight">
+              COMING SOON
+            </h2>
+            <p className="text-xl md:text-2xl text-gray-600 font-light">
+              Stay Connected
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
+    // Case 3: Products exist but none match the current filters (other than search)
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-5xl md:text-7xl font-semibold text-gray-900 mb-6 tracking-tight">
-            COMING SOON
-          </h2>
-          <p className="text-xl md:text-2xl text-gray-600 font-light">
-            Stay Connected
-          </p>
+          <h2 className="text-3xl font-light text-gray-900 mb-4">No products found</h2>
+          <p className="text-gray-600 mb-8">Try adjusting your filters</p>
+          <button
+            onClick={clearFilters}
+            className="bg-gray-900 text-white px-8 py-3 text-sm font-medium tracking-wide hover:bg-gray-800 transition-colors duration-300"
+          >
+            CLEAR ALL FILTERS
+          </button>
         </div>
       </div>
     );
@@ -256,7 +308,7 @@ const Packs: React.FC = () => {
           </div>
         </div>
       </div>
-
+      
       <div className="container mx-auto px-[0.1px] lg:px-6">
         {/* Filter Bar Component */}
         <FilterBar
@@ -273,11 +325,13 @@ const Packs: React.FC = () => {
           clearFilters={clearFilters}
           sortOptions={sortOptions}
           categories={packsType}
+          onSearchSubmit={handleSearchSubmit}
+          onKeyDown={handleKeyDown}
         />
-
+        
         {/* Products Grid Component */}
         <ProductsGrid products={paginatedProducts} clearFilters={clearFilters} />
-
+        
         {/* Pagination Component */}
         <Pagination
           currentPage={currentPage}

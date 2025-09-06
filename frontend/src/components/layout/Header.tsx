@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
@@ -17,6 +16,7 @@ interface Category {
   title: string;
   items: string[];
   image: string;
+  href: string;
 }
 
 interface Featured {
@@ -27,7 +27,7 @@ interface Featured {
 
 interface MegaMenuSection {
   categories: Category[];
-  featured: Featured;
+  featured?: Featured[];
 }
 
 type MegaMenuData = {
@@ -48,6 +48,7 @@ export default function Header() {
   const [pulseBadge, setPulseBadge] = useState<boolean>(false);
   const [cartItemCount, setCartItemCount] = useState<number>(0);
   const [isClient, setIsClient] = useState<boolean>(false); // Track client-side rendering
+  const [isClosing, setIsClosing] = useState<boolean>(false); // For smooth closing animation
 
   useEffect(() => {
     setIsClient(true); // Set to true after component mounts on client
@@ -63,24 +64,48 @@ export default function Header() {
     return unsubscribe;
   }, [totalItems, cartItemCount]);
 
+  // Close mobile menu when route changes
+  useEffect(() => {
+    const handleRouteChange = () => {
+      if (isMenuOpen) {
+        closeMobileMenu();
+      }
+    };
+
+    // Listen for route changes
+    window.addEventListener('popstate', handleRouteChange);
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+    };
+  }, [isMenuOpen]);
+
   const toggleMenu = useCallback(() => {
-    setIsMenuOpen((prev) => !prev);
-    if (!isMenuOpen) {
-      setActiveDropdown(null);
+    if (isMenuOpen) {
+      closeMobileMenu();
+    } else {
+      setIsMenuOpen(true);
+      setIsClosing(false);
     }
   }, [isMenuOpen]);
+
+  const closeMobileMenu = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsMenuOpen(false);
+      setIsClosing(false);
+      setActiveDropdown(null); // Reset dropdown when closing menu
+    }, 300); // Match this with the CSS transition duration
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const isMobile = window.innerWidth < 1024;
-
       if (currentScrollY > 200 && activeDropdown) {
         setActiveDropdown(null);
         setIsHoveringDropdown(false);
         setIsDropdownVisible(false);
       }
-
       if (isMobile && isMenuOpen) {
         setVisible(true);
       } else {
@@ -90,11 +115,9 @@ export default function Header() {
           setVisible(true);
         }
       }
-
       setScrolled(currentScrollY > 10);
       setLastScrollY(currentScrollY);
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY, activeDropdown, isMenuOpen]);
@@ -103,144 +126,87 @@ export default function Header() {
     APPAREL: {
       categories: [
         {
-          title: 'Men',
-          items: [
-            'OVERSIZED T SHIRTS',
-            'POLO',
-            'Hoodies',
-            'Tank Tops',
-            'Shorts',
-            'CAPS /HENKY',
-          ],
+          title: 'Man',
+          items: ["Oversized Tees", "Polo Tees", "Hoodies", "Tank tops", "Shorts", "Caps"],
           image: 'https://images.unsplash.com/photo-1516826957135-700dedea698c?w=300&h=200&fit=crop',
+          href: '/apparel/man',
         },
         {
-          title: 'Women',
-          items: [
-            'OVERSIZED',
-            'HOODIES',
-            'Tote Bags',
-            'Hats/Caps/HANDBAND',
-          ],
+          title: 'Woman',
+          items: ["Oversized Tees", "Hoodies", "Tote bags", "Caps"],
           image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=300&h=200&fit=crop',
+          href: '/apparel/woman',
         },
-      ],
-      featured: {
-        title: 'Apparel Highlights',
-        subtitle: 'Fresh drops & bestsellers',
-        image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=500&fit=crop',
-      },
+      ]
     },
-
     HOME: {
       categories: [
         {
           title: 'All Décor',
-          items: [
-            'Wall Art',
-            'Canvas Prints',
-            'Posters','Stickers'
-
-          ],
+          items: ["Canvas Prints", "Posters", "Acrylic Posters", "Framed Art", "Stickers", "Coasters", "Notepads"],
           image: 'https://images.unsplash.com/photo-1493663284031-b7e3aaa4cab7?w=300&h=200&fit=crop',
+          href: '/home/decor',
         },
         {
-          title: 'Stationery',
-          items: [
-            'Custom Notebooks & Journals',
-            'Phone Cases',
-          ],
+          title: 'Stationary',
+          items: ["Notebooks", "Journals", "Phone Cases"],
           image: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=300&h=200&fit=crop',
+          href: '/home/stationary'
         },
       ],
-      featured: {
-        title: 'Home Collection',
-        subtitle: 'All Décor & Stationery',
-        image: 'https://images.unsplash.com/photo-1505691723518-36a3b3d07a6f?w=400&h=500&fit=crop',
-      },
     },
-
     CREATIVE: {
       categories: [
         {
           title: 'Design Assets & Mockups',
-          items: [
-            'Websites & Landing Pages',
-            'clones',
-            'Audio & Media Packs',
-          ],
+          items: ['Vectors', 'Icons', 'Mockups', 'Patterns', 'Textures', 'Fonts'],
           image: 'https://images.unsplash.com/photo-1529059997563-6c3d0b6c0b98?w=300&h=200&fit=crop',
+          href: '/digitaltools/asset'
         },
         {
           title: 'Templates & Marketing Kits',
-          items: [
-            'Landing Pages',
-            'Insta reels',
-            'Packs',
-          ],
+          items: ['Website Templates', 'Email Templates', 'Social Media Kits', 'Presentation Templates', 'Brochures'],
           image: 'https://images.unsplash.com/photo-1529059997563-6c3d0b6c0b98?w=300&h=200&fit=crop',
+          href: '/digitaltools/kits'
         },
         {
           title: 'Audio & Media Packs',
-          items: [
-            'geopolitics poadcast',
-            'quikly',
-            'vocabulary',
-          ],
+          items: ['Sound Effects', 'Music Tracks', 'Stock Video', 'Animations', 'Podcast Kits'],
           image: 'https://images.unsplash.com/photo-1529059997563-6c3d0b6c0b98?w=300&h=200&fit=crop',
+          href: '/digitaltools/packs'
         },
       ],
-      featured: {
-        title: 'Creative Tools',
-        subtitle: 'Power up your projects',
-        image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&h=500&fit=crop',
-      },
     },
-
     EDUCORE: {
       categories: [
         {
           title: 'Study Planners & Trackers',
-          items: [
-            'jee',
-            'neet',
-            'nda',
-          ],
+          items: ['Weekly Planners', 'Daily Trackers', 'Habit Trackers', 'Focus Timers', 'Progress Dashboards'],
           image: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=300&h=200&fit=crop',
+          href: '/educore/study'
         },
         {
           title: 'Exam Prep Resources',
-          items: [
-            'scc notes',
-            '12th notes',
-            
-          ],
+          items: ['Practice Tests', 'Flashcards', 'Cheat Sheets', 'Revision Schedules', 'Answer Explanations'],
           image: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=300&h=200&fit=crop',
+          href: '/educore/resources'
         },
         {
           title: 'Gamified Learning Packs',
-          items: [
-            'story books',
-            'Class-1st',
-            'Class-2nd',
-          ],
+          items: ['Math Games', 'Language Quests', 'Reward Systems', 'Level-based Courses', 'Interactive Challenges'],
           image: 'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=300&h=200&fit=crop',
+          href: '/educore/gamified'
         },
       ],
-      featured: {
-        title: 'EduCore',
-        subtitle: 'Learn smarter',
-        image: 'https://images.unsplash.com/photo-1554774853-aae3c3b61a0e?w=400&h=500&fit=crop',
-      },
     },
   };
 
   const navigationItems = useMemo(
     () => [
-      { label: 'APPAREL', title: 'Apparel', href: '#', className: 'text-gray-900 hover:text-gray-700' },
-      { label: 'HOME', title: 'Home', href: '#', className: 'text-gray-900 hover:text-gray-700' },
-      { label: 'CREATIVE', title: 'Creative & Business', href: '#', className: 'text-gray-900 hover:text-gray-700' },
-      { label: 'EDUCORE', title: 'EDUCORE', href: '#', className: 'text-gray-900 hover:text-gray-700' },
+      { label: 'APPAREL', title: 'Apparel', href: '/apparel', className: 'text-gray-900 hover:text-gray-700' },
+      { label: 'HOME', title: 'Home', href: '/home', className: 'text-gray-900 hover:text-gray-700' },
+      { label: 'CREATIVE', title: 'Creative & Business', href: '/digitaltools', className: 'text-gray-900 hover:text-gray-700' },
+      { label: 'EDUCORE', title: 'EDUCORE', href: '/educore', className: 'text-gray-900 hover:text-gray-700' },
     ],
     []
   );
@@ -309,14 +275,12 @@ export default function Header() {
     if (session) {
       return (
         <>
-          <Link href="/profile" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
+          <Link href="/profile" onClick={closeMobileMenu} className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
             Profile
           </Link>
-
-          <Link href="/orders" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
+          <Link href="/orders" onClick={closeMobileMenu} className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
             Orders
           </Link>
-
           <button
             onClick={handleLogout}
             className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 flex items-center gap-2`}
@@ -329,13 +293,12 @@ export default function Header() {
     }
     return (
       <>
-        <Link href="/login" className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
+        <Link href="/login" onClick={closeMobileMenu} className={`block text-sm ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200`}>
           Login
         </Link>
-        
       </>
     );
-  }, [session]);
+  }, [session, closeMobileMenu]);
 
   const desktopUserLinks = useMemo(() => {
     if (session) {
@@ -352,7 +315,6 @@ export default function Header() {
               <Package className="size-5" />
             </button>
           </Link>
-
         </>
       );
     }
@@ -361,7 +323,6 @@ export default function Header() {
         <Link href="/login" title="Login">
           <span className={`p-2 ${sourceSansPro.className} text-gray-800 hover:text-red-700 transition-colors duration-200 cursor-pointer text-sm font-light`}>Login</span>
         </Link>
-       
       </>
     );
   }, [session]);
@@ -393,15 +354,13 @@ export default function Header() {
               </svg>
             )}
           </button>
-
-          <Link href="/" title="Your Store" className="absolute inset-0 mx-auto flex max-w-[120px] items-center justify-center lg:relative">
+          <Link href="/" title="Your Store" onClick={closeMobileMenu} className="absolute inset-0 mx-auto flex max-w-[120px] items-center justify-center lg:relative">
             <span className={`${cinzel.className} text-2xl font-semibold text-gray-900 tracking-wider hover:text-gray-700 transition-colors duration-200 cursor-pointer`}>
               Your Store
             </span>
           </Link>
-
           <div className="flex items-center">
-            <Link href="/cart" title="View Cart">
+            <Link href="/cart" title="View Cart" onClick={closeMobileMenu}>
               {isClient ? (
                 <button
                   type="button"
@@ -430,7 +389,6 @@ export default function Header() {
             </Link>
           </div>
         </div>
-
         {/* Desktop Header */}
         <div className="relative hidden h-14 items-center justify-between lg:flex">
           <div className="flex w-full items-center justify-between">
@@ -441,7 +399,6 @@ export default function Header() {
                 </span>
               </Link>
             </div>
-
             <nav className="flex flex-2 justify-center gap-10" role="navigation">
               {navigationItems.map((item) => (
                 <div key={item.label} className="relative" onMouseEnter={() => handleMouseEnter(item.label)} onMouseLeave={handleMouseLeave}>
@@ -453,10 +410,8 @@ export default function Header() {
                 </div>
               ))}
             </nav>
-
             <div className="flex flex-1 items-center justify-end gap-6">
               <ul className="flex items-center gap-4">{desktopUserLinks}</ul>
-
               <div className="flex items-center gap-3">
                 <Link href="/cart" title="View Cart">
                   {isClient ? (
@@ -489,56 +444,68 @@ export default function Header() {
             </div>
           </div>
         </div>
-
         {/* Mobile Menu (Full-screen overlay) */}
         <div
-          className={`fixed inset-0 z-40 bg-white transition-transform duration-500 ease-in-out lg:hidden ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          className={`fixed inset-0 z-40 bg-white transition-transform duration-500 ease-in-out lg:hidden ${isMenuOpen && !isClosing ? 'translate-x-0' : '-translate-x-full'
             }`}
         >
           <div className="flex h-12 items-center justify-between px-2.5">
             <button className="p-2" onClick={toggleMenu} aria-label="Close menu" data-formignore="true">
               <X className="size-6 text-gray-900" />
             </button>
-            <Link href="/" title="Your Store" onClick={toggleMenu}>
+            <Link href="/" title="Your Store" onClick={closeMobileMenu}>
               <span className={`${cinzel.className} text-2xl font-semibold text-gray-900 tracking-wider`}>Your Store</span>
             </Link>
             <div className="p-2 w-10"></div> {/* Spacer for alignment */}
           </div>
-          <div className="overflow-y-auto h-[calc(100vh-48px)] py-8 px-6 bg-stone-100">
+          <div className="overflow-y-auto h-[calc(100vh-48px)] py-8 px-6 bg-stone-100/93">
             <div className="space-y-6">
               {navigationItems.map((item) => (
                 <div key={item.label} className="border-b border-gray-200">
-                  <button
-                    onClick={() => handleMobileDropdownToggle(item.label)}
-                    className="w-full py-4 text-left text-lg font-normal uppercase tracking-wide flex items-center justify-between text-gray-900"
-                    style={{ fontFamily: cinzel.style.fontFamily }}
-                    data-formignore="true"
-                  >
-                    <span>{item.title}</span>
+                  <div className="flex items-center justify-between py-4">
+                    <Link 
+                      href={item.href} 
+                      onClick={closeMobileMenu}
+                      className="text-l font-normal uppercase tracking-wide text-gray-900"
+                      style={{ fontFamily: cinzel.style.fontFamily }}
+                    >
+                      {item.title}
+                    </Link>
                     {megaMenuData[item.label as keyof MegaMenuData] && (
-                      <svg
-                        className={`w-5 h-5 transition-transform duration-200 text-gray-600 ${activeDropdown === item.label ? 'rotate-180' : ''}`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMobileDropdownToggle(item.label);
+                        }}
+                        className="p-1"
+                        data-formignore="true"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
+                        <svg
+                          className={`w-5 h-5 transition-transform duration-200 text-gray-600 ${activeDropdown === item.label ? 'rotate-180' : ''}`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
                     )}
-                  </button>
+                  </div>
                   {activeDropdown === item.label && megaMenuData[item.label as keyof MegaMenuData] && (
                     <div className="py-4 space-y-6">
                       {megaMenuData[item.label as keyof MegaMenuData].categories.map((category, index) => (
                         <div key={index}>
-                          <h4 className={`text-sm ${sourceSansPro.className} font-medium uppercase tracking-wider text-gray-500 mb-4`}>{category.title}</h4>
+                          <Link href={category.href} onClick={closeMobileMenu}>
+                            <h4 className={`text-lg ${sourceSansPro.className} font-medium uppercase border-b-1 tracking-wider text-gray-500 mb-4`}>{category.title}</h4>
+                          </Link>
                           <div className="grid grid-cols-2 gap-4">
                             {category.items.map((subItem, subIndex) => (
                               <Link
                                 key={subIndex}
                                 href="#"
-                                className={`text-sm ${sourceSansPro.className} text-gray-700 hover:text-red-700 transition-colors duration-200 font-light`}
-                                onClick={toggleMenu}
+                                className={`text-xs ${sourceSansPro.className} text-gray-700 hover:text-red-700 transition-colors duration-200 font-light`}
+                                onClick={closeMobileMenu}
                               >
                                 {subItem}
                               </Link>
@@ -555,17 +522,16 @@ export default function Header() {
           </div>
         </div>
       </header>
-
       {/* Mega Menu Dropdown */}
       {activeDropdown && megaMenuData[activeDropdown] && (
         <div
-          className={`fixed left-0 right-0 z-40 bg-white shadow-2xl border-t border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${scrolled ? 'top-12' : 'top-16'
+          className={`fixed left-0 right-0 z-40 bg-stone-100/95 shadow-2xl border-t border-gray-200 transition-all duration-300 ease-in-out overflow-hidden ${scrolled ? 'top-12' : 'top-16'
             } ${visible ? 'translate-y-0' : '-translate-y-full'} ${isDropdownVisible ? 'max-h-[600px] opacity-100 transform translate-y-0' : 'max-h-0 opacity-0 transform -translate-y-4'
             }`}
           onMouseEnter={handleDropdownMouseEnter}
           onMouseLeave={handleDropdownMouseLeave}
         >
-          <div className="hidden lg:block max-w-7xl mx-auto px-8 py-16">
+          <div className="hidden lg:block max-w-7xl mx-auto px-8 py-10">
             <div className="grid grid-cols-4 gap-16">
               {megaMenuData[activeDropdown].categories.map((category, index) => (
                 <div key={index} className="space-y-8">
@@ -573,7 +539,7 @@ export default function Header() {
                     <img src={category.image} alt={category.title} className="w-full h-56 object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                     <div className="absolute bottom-6 left-6">
-                      <h3 className={`text-white ${cinzel.className} font-medium text-xl tracking-wide uppercase`}>{category.title}</h3>
+                      <Link href={category.href}><h3 className={`text-white ${cinzel.className} font-medium text-xl tracking-wide uppercase`}>{category.title}</h3></Link>
                     </div>
                   </div>
                   <div className="space-y-3 pl-2">
@@ -590,22 +556,6 @@ export default function Header() {
                 </div>
               ))}
 
-              {/* Featured Section */}
-              <div className="space-y-8">
-                <div className="relative overflow-hidden">
-                  <img src={megaMenuData[activeDropdown].featured.image} alt={megaMenuData[activeDropdown].featured.title} className="w-full h-96 object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                  <div className="absolute bottom-8 left-8 right-8">
-                    <p className={`text-gray-300 text-sm ${sourceSansPro.className} font-medium tracking-wide uppercase mb-3`}>
-                      {megaMenuData[activeDropdown].featured.subtitle}
-                    </p>
-                    <h3 className={`text-white ${cinzel.className} font-medium text-3xl mb-6 tracking-wide`}>{megaMenuData[activeDropdown].featured.title}</h3>
-                    <button className="bg-white text-black px-8 py-3 text-sm font-medium tracking-wide uppercase hover:bg-gray-100 transition-colors duration-200" style={{ fontFamily: sourceSansPro.style.fontFamily }} data-formignore="true">
-                      Shop Now
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

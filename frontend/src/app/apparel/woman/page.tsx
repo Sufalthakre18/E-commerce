@@ -1,5 +1,5 @@
-import MensCollectionPage from "@/components/apparel/woman/WomanApparel";
+import WomanApparelPage from "@/components/apparel/woman/WomanApparel";
 
-export default function MensCollection(){
-    return <MensCollectionPage />;
+export default function WomanApparel(){
+    return <WomanApparelPage />;
 }

@@ -1,5 +1,4 @@
 'use client';
-
 import React from 'react';
 import { Filter, Search } from 'lucide-react';
 
@@ -17,6 +16,8 @@ interface FilterBarProps {
   clearFilters: () => void;
   sortOptions: { value: string; label: string }[];
   categories: string[];
+  onSearchSubmit: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
 const FilterBar: React.FC<FilterBarProps> = ({
@@ -33,22 +34,31 @@ const FilterBar: React.FC<FilterBarProps> = ({
   clearFilters,
   sortOptions,
   categories,
+  onSearchSubmit,
+  onKeyDown
 }) => {
   return (
     <div className="border-b border-gray-200 py-4 lg:py-8">
       <div className="flex flex-col lg:flex-row gap-6 items-center justify-between">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+         
           <input
             type="text"
             placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-1 lg:py-3 border border-gray-300 focus:outline-none focus:border-gray-900 transition-colors duration-300 text-sm"
+            onKeyDown={onKeyDown}
+            className="w-full pl-12 pr-12 py-1 lg:py-3 border border-gray-300 focus:outline-none focus:border-gray-900 transition-colors duration-300 text-sm"
           />
+          <button
+            onClick={onSearchSubmit}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4" />
+          </button>
         </div>
-
         {/* Controls */}
         <div className="flex items-center gap-2 lg:gap-6">
           <button
@@ -58,7 +68,6 @@ const FilterBar: React.FC<FilterBarProps> = ({
             <Filter className="w-4 h-4" />
             FILTER & SORT
           </button>
-
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
@@ -72,10 +81,9 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </select>
         </div>
       </div>
-
       {/* Filters Section */}
       {showFilters && (
-        <div className="mt-8 pt-8 border-t border-gray-200">
+        <div className="mt-8 pl-2 pt-8 border-t border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Category Filter */}
             <div>
@@ -102,7 +110,6 @@ const FilterBar: React.FC<FilterBarProps> = ({
                 ))}
               </div>
             </div>
-
             {/* Price Range */}
             <div>
               <label className="block text-sm font-medium text-gray-900 mb-4 tracking-wide">PRICE RANGE</label>
@@ -123,7 +130,6 @@ const FilterBar: React.FC<FilterBarProps> = ({
                 />
               </div>
             </div>
-
             {/* Clear Filters */}
             <div className="flex items-end">
               <button

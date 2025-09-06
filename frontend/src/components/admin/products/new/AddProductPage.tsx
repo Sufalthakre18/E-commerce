@@ -82,8 +82,8 @@ export default function AddProductPage() {
       toast.error(`${file.name} exceeds 10MB limit`);
       return false;
     }
-    const allowedTypes = ['image/png', 'image/jpeg'];
-    const allowedExtensions = ['.png', '.jpg', '.jpeg'];
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    const allowedExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
     const extension = '.' + file.name.split('.').pop()?.toLowerCase();
     return allowedTypes.includes(file.type) && allowedExtensions.includes(extension);
   }
@@ -454,7 +454,7 @@ export default function AddProductPage() {
                     <input
                       type="file"
                       multiple
-                      accept=".png,.jpg,.jpeg"
+                      accept=".png,.jpg,.jpeg,.webp"
                       onChange={handleImageChange}
                       className="hidden"
                     />

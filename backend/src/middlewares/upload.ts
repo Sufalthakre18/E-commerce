@@ -20,9 +20,9 @@ const storage = multer.diskStorage({
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   console.log(`File uploaded: ${file.originalname}, MIME type: ${file.mimetype}, Field: ${file.fieldname}`);
   
-  const allowedImageTypes = ["image/png", "image/jpeg"];
+  const allowedImageTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
   const allowedDigitalTypes = ["application/pdf", "application/zip", "application/x-zip-compressed", "audio/mpeg", "application/octet-stream"];
-  const allowedImageExtensions = [".png", ".jpg", ".jpeg"];
+  const allowedImageExtensions = [".png", ".jpg", ".jpeg", ".webp"];
   const allowedDigitalExtensions = [".pdf", ".zip", ".mp3"];
   const extension = path.extname(file.originalname).toLowerCase();
 
