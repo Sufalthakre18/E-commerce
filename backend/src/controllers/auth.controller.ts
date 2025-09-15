@@ -82,4 +82,18 @@ export const AuthController = {
       res.status(400).json({ success: false, message: error.message });
     }
   },
+  async list(_req: Request, res: Response) {
+  const users = await authService.list();
+  // Transform the data to include orderCount and recentOrder as top-level properties
+  const transformedUsers = users.map(user => ({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    createdAt: user.createdAt,
+    role: user.role,
+    orderCount: user._count.orders,
+    recentOrder: user.orders.length > 0 ? user.orders[0] : null
+  }));
+  res.json(transformedUsers);
+}
 };

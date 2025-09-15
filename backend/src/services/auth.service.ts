@@ -233,4 +233,32 @@ export const authService = {
     const token = signToken({ id: user.id, email: user.email, role: user.roleId });
     return { token, user };
   },
+  async list() {
+  return prisma.user.findMany({
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      createdAt: true,
+      role: true,
+      _count: {
+        select: {
+          orders: true
+        }
+      },
+      orders: {
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 1, // Get only the most recent order
+        select: {
+          id: true,
+          status: true
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+  
 };

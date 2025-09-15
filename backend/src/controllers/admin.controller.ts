@@ -267,9 +267,24 @@ export const getAllRefundDetails = async (req: AuthenticatedRequest, res: Respon
       },
     });
 
+    // Map through refunds to include all details and add processed status
     const enrichedRefunds = refundDetails.map(refund => ({
-      ...refund,
+      id: refund.id,
+      orderId: refund.orderId,
+      fullName: refund.fullName,
+      upiId: refund.upiId,
+      accountNumber: refund.accountNumber,
+      ifscCode: refund.ifscCode,
+      bankName: refund.bankName,
+      createdAt: refund.createdAt,
+      deletedAt: refund.deletedAt,
       processed: !!refund.deletedAt,
+      order: {
+        id: refund.order.id,
+        userId: refund.order.userId,
+        status: refund.order.status,
+        total: refund.order.total,
+      }
     }));
 
     res.json({ success: true, data: enrichedRefunds });
@@ -279,49 +294,4 @@ export const getAllRefundDetails = async (req: AuthenticatedRequest, res: Respon
   }
 };
 
-export const getRefundDetailsByOrderId = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { orderId } = req.params;
 
-  try {
-    const refund = await prisma.refundDetail.findUnique({
-      where: { orderId },
-    });
-
-    if (!refund || refund.deletedAt) {
-      res.status(404).json({ error: "No refund details found for this order." });
-      return;
-    }
-
-    res.json({ success: true, refund });
-  } catch (error) {
-    console.error("Error fetching refund details", error);
-    res.status(500).json({ error: "Something went wrong while fetching refund details." });
-  }
-};
-
-export const refundStatusUpdate = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  const { orderId } = req.params;
-
-  try {
-    const refundDetail = await prisma.refundDetail.findUnique({
-      where: { orderId },
-    });
-
-    if (!refundDetail) {
-      res.status(404).json({ success: false, message: "Refund detail not found" });
-      return;
-    }
-
-    const updated = await prisma.refundDetail.update({
-      where: { orderId },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    console.error("[PATCH refund-details/:orderId]", error);
-    res.status(500).json({ success: false, message: "Something went wrong" });
-  }
-};

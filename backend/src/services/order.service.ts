@@ -89,30 +89,30 @@ export const OrderService = {
   async getUserOrders(userId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
     const orders = await prisma.order.findMany({
-      where: { userId },
-      skip,
-      take: limit,
-      include: {
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                images: true,
-                productType: true,
-                digitalFiles: { select: { id: true, publicId: true, fileName: true } },
-              },
+    where: { userId },
+    skip,
+    take: limit,
+    include: {
+      items: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              price: true,
+              images: { select: { url: true }, take: 1 }, // Sirf pehli image
+              productType: true,
+              digitalFiles: { select: { id: true, publicId: true, fileName: true } },
             },
-            size: true,
-            variant: true,
           },
+          size: { select: { id: true, size: true } },
+          variant: { select: { id: true, color: true, colorCode: true, price: true } },
         },
-        payment: true,
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      payment: { select: { method: true, transactionId: true, createdAt: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 
     return {
       orders: orders.map(order => ({

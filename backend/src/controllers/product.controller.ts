@@ -11,35 +11,49 @@ interface AuthRequest extends Request {
 }
 
 export const ProductController = {
-  async getAll(req: Request, res: Response) {
-    const { page, limit, categoryId, search, minPrice, maxPrice, type, productType } = req.query;
-
-    const filters = {
-      page: Number(page) || 1,
-      limit: Number(limit) || 10,
-      categoryId: categoryId as string,
-      search: search as string,
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      type: type as string,
-      productType: productType as string,
+ async getAll(req: Request, res: Response) {
+  const { 
+    page, 
+    limit, 
+    categoryId, 
+    search, 
+    minPrice, 
+    maxPrice, 
+    type, 
+    productType,
+    mainCategory,  // Add this
+    subCategory    // Add this
+  } = req.query;
+  
+  const filters = {
+    page: Number(page) || 1,
+    limit: Number(limit) || 10,
+    categoryId: categoryId as string,
+    search: search as string,
+    minPrice: minPrice ? Number(minPrice) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    type: type as string,
+    productType: productType as string,
+    mainCategory: mainCategory as string,  // Add this
+    subCategory: subCategory as string     // Add this
+  };
+  
+  try {
+    const result = await productService.getAllPaginated(filters);
+    const securedProducts = {
+      ...result,
+      products: result.products.map(product => ({
+        ...product,
+        digitalFiles: [],
+      })),
     };
+    res.json(securedProducts);
+  } catch (err) {
+    console.error("Error fetching products:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch products" });
+  }
+},
 
-    try {
-      const result = await productService.getAllPaginated(filters);
-      const securedProducts = {
-        ...result,
-        products: result.products.map(product => ({
-          ...product,
-          digitalFiles: [],
-        })),
-      };
-      res.json(securedProducts);
-    } catch (err) {
-      console.error("Error fetching products:", err);
-      res.status(500).json({ success: false, message: "Failed to fetch products" });
-    }
-  },
 
   async create(req: AuthRequest, res: Response) {
     try {
@@ -374,40 +388,56 @@ export const ProductController = {
       res.status(500).json({ success: false, message: "Failed to delete products by category" });
     }
   },
-
-  async getById(req: Request, res: Response) {
-    const { id } = req.params;
-    try {
-      const product = await productService.getById(id);
-      const securedProduct = {
-        ...product,
-        digitalFiles: [],
-      };
-      res.json({ success: true, data: securedProduct });
-    } catch (err) {
-      console.error("Error fetching product:", err);
-      res.status(500).json({ success: false, message: err instanceof Error ? err.message : "Failed to fetch product" });
-    }
-  },
-
   async getAllProducts(req: Request, res: Response) {
-    const { search, categoryId, inStockOnly } = req.query;
-    try {
-      const products = await productService.getFilteredProducts({
+  const { search, categoryId, inStockOnly, page = 1, limit = 5 } = req.query;
+  
+  try {
+    // Convert query parameters to numbers
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    
+    // Calculate offset for pagination
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Get filtered products with pagination
+    const [products, total] = await Promise.all([
+      productService.getFilteredProducts({
         search: search?.toString(),
         categoryId: categoryId?.toString(),
         inStockOnly: inStockOnly === "true",
-      });
-      const securedProducts = products.map(product => ({
-        ...product,
-        digitalFiles: [],
-      }));
-      res.json({ success: true, data: securedProducts });
-    } catch (err) {
-      console.error("Error fetching filtered products:", err);
-      res.status(500).json({ success: false, message: "Failed to fetch filtered products" });
-    }
-  },
+        skip,
+        take: limitNum,
+      }),
+      productService.countFilteredProducts({
+        search: search?.toString(),
+        categoryId: categoryId?.toString(),
+        inStockOnly: inStockOnly === "true",
+      }),
+    ]);
+    
+    const securedProducts = products.map(product => ({
+      ...product,
+      digitalFiles: [],
+    }));
+    
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(total / limitNum);
+    
+    res.json({ 
+      success: true, 
+      data: securedProducts,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages,
+      }
+    });
+  } catch (err) {
+    console.error("Error fetching filtered products:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch filtered products" });
+  }
+},
 
   async checkDigital(req: Request, res: Response): Promise<void> {
     const { items } = req.body;
@@ -435,5 +465,50 @@ export const ProductController = {
       console.error('Error checking digital products:', err);
       res.status(500).json({ error: 'Failed to check product types' });
     }
+  },
+  
+async getProductWithReviews(req: Request, res: Response) {
+  const { id } = req.params;
+  try {
+    const { product, similarProducts } = await productService.getProductWithReviews(id);
+
+    const securedProduct = {
+      ...product,
+      digitalFiles: [], // Keep digital files hidden
+    };
+
+    res.json({ 
+      success: true, 
+      data: {
+        product: securedProduct,
+        similarProducts: similarProducts.map(p => ({
+          ...p,
+          digitalFiles: [], // Ensure no digital files in similar products
+        })),
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching product with reviews:", err);
+    if (err instanceof Error && err.message === "Product not found") {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+    res.status(500).json({
+      success: false,
+      message: err instanceof Error ? err.message : "Failed to fetch product with reviews",
+    });
   }
+},
+ async getFeaturedProducts(req: Request, res: Response) {
+  const { category } = req.query;
+  try {
+    console.log(`Fetching featured products for category: ${category}`);
+    const products = await productService.getFeaturedProducts(category as string);
+    console.log(`Found ${products.length} featured products`);
+    
+    res.json({ success: true, data: products });
+  } catch (err) {
+    console.error("Error fetching featured products:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch featured products" });
+  }
+},
 };

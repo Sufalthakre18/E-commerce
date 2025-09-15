@@ -67,6 +67,8 @@ const GamifiedPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   
   // Filter and UI states
   const [selectedType, setSelectedType] = useState<string>('');
@@ -79,132 +81,108 @@ const GamifiedPage: React.FC = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  // Fetch products
+  
+  // Fetch products with all filters applied
+  const fetchProducts = useCallback(async (page: number) => {
+    try {
+      setLoading(true);
+      
+      // Build query parameters
+      const params = new URLSearchParams({
+        mainCategory: 'EduCore',
+        subCategory: 'Gamified Learning Packs',
+        page: page.toString(),
+        limit: itemsPerPage.toString(),
+      });
+      
+      // Add optional filters
+      if (selectedType) params.append('type', selectedType);
+      if (appliedSearchQuery) params.append('search', appliedSearchQuery);
+      if (priceRange.min > 0) params.append('minPrice', priceRange.min.toString());
+      if (priceRange.max < 10000) params.append('maxPrice', priceRange.max.toString());
+      
+      const data: ApiResponse = await fetchWrapper(
+        `${process.env.NEXT_PUBLIC_API_URL}/products?${params.toString()}`
+      );
+      
+      setProducts(data.products);
+      setTotalProducts(data.total);
+      setTotalPages(data.totalPages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedType, appliedSearchQuery, priceRange, itemsPerPage]);
+  
+  // Initial load and when filters change
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data: ApiResponse = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`,
-          },
-        });
-        const gamifiedProducts = data.products.filter(
-          (product) => product.category.parent?.name === 'EduCore' && product.category.name === 'Gamified Learning Packs',
-        );
-        setProducts(gamifiedProducts);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred while fetching products');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, []);
-
+    fetchProducts(currentPage);
+  }, [fetchProducts, currentPage]);
+  
   // Handle search submission
   const handleSearchSubmit = useCallback(() => {
     setAppliedSearchQuery(searchQuery);
     setCurrentPage(1); // Reset to first page when searching
   }, [searchQuery]);
-
+  
   // Handle Enter key press in search input
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearchSubmit();
     }
   }, [handleSearchSubmit]);
-
-  // Process and filter products
+  
+  // Handle page change
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+  
+  // Clear filters
+  const clearFilters = useCallback(() => {
+    setSelectedType('');
+    setSearchQuery('');
+    setAppliedSearchQuery('');
+    setPriceRange({ min: 0, max: 10000 });
+    setCurrentPage(1);
+  }, []);
+  
+  // Process products for sorting (since backend only sorts by date)
   const processedProducts = useMemo(() => {
-    let filtered = [...products];
-    
-    // Search filter - now uses appliedSearchQuery instead of searchQuery
-    if (appliedSearchQuery) {
-      const query = appliedSearchQuery.toLowerCase().trim();
-      if (query) {
-        filtered = filtered.filter(
-          (product) =>
-            product.name.toLowerCase().includes(query) ||
-            product.description.toLowerCase().includes(query) ||
-            product.type?.toLowerCase().includes(query),
-        );
-      }
-    }
-    
-    // Type filter
-    if (selectedType) {
-      filtered = filtered.filter((product) => product.type?.toLowerCase() === selectedType.toLowerCase());
-    }
-    
-    // Price range filter
-    filtered = filtered.filter((product) => {
-      const prices = [product.price, ...product.variants.map((v) => v.price)];
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-      return maxPrice >= priceRange.min && minPrice <= priceRange.max;
-    });
+    let sorted = [...products];
     
     // Sorting
     switch (sortBy) {
       case 'price-low':
-        filtered.sort((a, b) => {
+        sorted.sort((a, b) => {
           const aMinPrice = Math.min(a.price, ...a.variants.map((v) => v.price));
           const bMinPrice = Math.min(b.price, ...b.variants.map((v) => v.price));
           return aMinPrice - bMinPrice;
         });
         break;
       case 'price-high':
-        filtered.sort((a, b) => {
+        sorted.sort((a, b) => {
           const aMaxPrice = Math.max(a.price, ...a.variants.map((v) => v.price));
           const bMaxPrice = Math.max(b.price, ...b.variants.map((v) => v.price));
           return bMaxPrice - aMaxPrice;
         });
         break;
       case 'newest':
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         break;
       case 'name':
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
         break;
       default:
+        // 'featured' - keep the backend order (newest first)
         break;
     }
     
-    return filtered;
-  }, [products, selectedType, sortBy, appliedSearchQuery, priceRange]);
-
-  // Pagination logic
-  const { totalPages, paginatedProducts } = useMemo(() => {
-    const totalPages = Math.ceil(processedProducts.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedProducts = processedProducts.slice(startIndex, startIndex + itemsPerPage);
-    return {
-      totalPages,
-      paginatedProducts,
-    };
-  }, [processedProducts, currentPage, itemsPerPage]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [processedProducts]);
-
-  const clearFilters = useCallback(() => {
-    setSelectedType('');
-    setSearchQuery('');
-    setAppliedSearchQuery('');
-    setPriceRange({ min: 0, max: 10000 });
-  }, []);
-
-  const handlePageChange = useCallback((page: number) => {
-    setCurrentPage(page);
-  }, []);
-
-  // Loading state
-  if (loading) {
+    return sorted;
+  }, [products, sortBy]);
+  
+  // Loading state for initial load
+  if (loading && currentPage === 1) {
     return (
       <div className="min-h-screen bg-white">
         <div className="container mx-auto px-6 py-16">
@@ -224,7 +202,7 @@ const GamifiedPage: React.FC = () => {
       </div>
     );
   }
-
+  
   // Error state
   if (error) {
     return (
@@ -242,8 +220,8 @@ const GamifiedPage: React.FC = () => {
       </div>
     );
   }
-
-  // No products state - Updated with improved logic
+  
+  // No products state
   if (processedProducts.length === 0 && !loading) {
     // Case 1: User performed a search but no products were found
     if (appliedSearchQuery.trim() !== '') {
@@ -266,7 +244,7 @@ const GamifiedPage: React.FC = () => {
     }
     
     // Case 2: No products exist at all and no search was performed
-    if (products.length === 0) {
+    if (totalProducts === 0) {
       return (
         <div className="min-h-screen bg-white flex items-center justify-center">
           <div className="text-center">
@@ -281,7 +259,7 @@ const GamifiedPage: React.FC = () => {
       );
     }
     
-    // Case 3: Products exist but none match the current filters (other than search)
+    // Case 3: Products exist but none match the current filters
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -297,7 +275,7 @@ const GamifiedPage: React.FC = () => {
       </div>
     );
   }
-
+  
   return (
     <div className="min-h-screen bg-white">
       {/* Refined Hero Section */}
@@ -335,7 +313,7 @@ const GamifiedPage: React.FC = () => {
         />
         
         {/* Products Grid Component */}
-        <ProductsGrid products={paginatedProducts} clearFilters={clearFilters} />
+        <ProductsGrid products={processedProducts} clearFilters={clearFilters} />
         
         {/* Pagination Component */}
         <Pagination

@@ -1,3 +1,4 @@
+// ProductPage.tsx
 import ProductDetail from "@/components/products/ProductDetail";
 
 interface PageProps {
@@ -8,7 +9,7 @@ interface PageProps {
 
 async function getProduct(id: string) {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/products-with-reviews/${id}`);
     if (!res.ok) {
       throw new Error(`Failed to fetch product: ${res.status} ${res.statusText}`);
     }
@@ -17,7 +18,7 @@ async function getProduct(id: string) {
     if (!response.success || !response.data) {
       throw new Error("Invalid response format or product not found");
     }
-    return response.data; // Return the product object
+    return response.data; // Return the entire data object (product + similarProducts)
   } catch (error) {
     console.error("Error fetching product:", error);
     throw error;
@@ -26,10 +27,9 @@ async function getProduct(id: string) {
 
 export default async function ProductPage({ params }: PageProps) {
   const { id } = await params;
-  let product = null;
-
+  let data = null;
   try {
-    product = await getProduct(id);
+    data = await getProduct(id);
   } catch (error) {
     console.error("ProductPage error:", error);
     return (
@@ -50,10 +50,9 @@ export default async function ProductPage({ params }: PageProps) {
       </main>
     );
   }
-
   return (
     <main className="min-h-screen bg-white">
-      <ProductDetail product={product} />
+      <ProductDetail data={data} />
     </main>
   );
 }

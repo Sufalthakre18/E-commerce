@@ -25,25 +25,36 @@ export default function OtpPage() {
   const redirect = params.get('redirect') || '/';
   const [loading, setLoading] = useState(false);
 
-  const onSubmit = async (data: OtpForm) => {
-    setLoading(true);
-    try {
-      const result = await signIn('credentials', {
-        email,
-        otp: data.otp,
-        redirect: false,
-      });
-      if (result?.error) {
-        throw new Error(result.error);
-      }
-      toast.success('Verification successful');
-      router.push(redirect);
-    } catch (err: any) {
-      toast.error(err.message || 'Verification failed');
-    } finally {
+const onSubmit = async (data: OtpForm) => {
+  setLoading(true);
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/otp/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp: data.otp }),
+    });
+    
+    const responseData = await res.json();
+    
+    // Handle rate limiting response (429 status)
+    if (res.status === 429) {
+      toast.error(responseData.message || 'Too many verification attempts. Please try again later.');
       setLoading(false);
+      return;
     }
-  };
+    
+    if (!res.ok) {
+      throw new Error(responseData.message || 'Verification failed');
+    }
+    
+    toast.success('Verification successful');
+    router.push(redirect);
+  } catch (err: any) {
+    toast.error(err.message || 'Verification failed');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">

@@ -59,34 +59,45 @@ export default function LoginPage() {
     }
   };
 
-  const handleOtpLogin = async () => {
-    setOtpLoading(true);
-    try {
-      const emailInput = document.querySelector('input[name="email"]') as HTMLInputElement | null;
-      const email = emailInput?.value;
-      if (!email || !z.string().email().safeParse(email).success) {
-        toast.error('Please enter a valid email');
-        setOtpLoading(false);
-        return;
-      }
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/otp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Failed to send OTP');
-      }
-      toast.success('OTP sent to your email');
-      router.push(`/otp?email=${encodeURIComponent(email)}&redirect=/cart`);
-    } catch (err: any) {
-      console.error('OTP error:', err.message);
-      toast.error(err.message || 'Failed to send OTP');
-    } finally {
+const handleOtpLogin = async () => {
+  setOtpLoading(true);
+  try {
+    const emailInput = document.querySelector('input[name="email"]') as HTMLInputElement | null;
+    const email = emailInput?.value;
+    if (!email || !z.string().email().safeParse(email).success) {
+      toast.error('Please enter a valid email');
       setOtpLoading(false);
+      return;
     }
-  };
+    
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/otp/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    
+    const data = await res.json();
+    
+    // Handle rate limiting response (429 status)
+    if (res.status === 429) {
+      toast.error(data.message || 'Too many OTP requests. Please try again later.');
+      setOtpLoading(false);
+      return;
+    }
+    
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to send OTP');
+    }
+    
+    toast.success('OTP sent to your email');
+    router.push(`/otp?email=${encodeURIComponent(email)}&redirect=/cart`);
+  } catch (err: any) {
+    console.error('OTP error:', err.message);
+    toast.error(err.message || 'Failed to send OTP');
+  } finally {
+    setOtpLoading(false);
+  }
+};
 
   const handleGoogleLogin = async () => {
     const cartSnapshot = getCartSnapshot();

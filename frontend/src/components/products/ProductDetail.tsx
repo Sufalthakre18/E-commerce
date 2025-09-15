@@ -1,13 +1,11 @@
-// src/components/ProductDetail.tsx
+// ProductDetail.tsx
 'use client';
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { Star, Share2, Truck, Shield, RotateCcw, ChevronLeft, ChevronRight, Plus, Minus, ShoppingBag, Zap, ChevronDown, Heart } from 'lucide-react';
 import { Cinzel, Unica_One, Raleway, Source_Sans_3 } from 'next/font/google';
 import { useCartStore } from '@/store/cart';
 import { toast } from 'sonner';
-import { fetchWrapper } from '@/lib/api/fetchWrapper';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['600'], variable: '--font-cinzel' });
 const unica = Unica_One({ subsets: ['latin'], weight: ['400'], variable: '--font-unica' });
@@ -41,8 +39,8 @@ interface Review {
   comment: string;
   createdAt: string;
   user: {
+    id: string;
     name: string;
-    email: string;
   };
 }
 
@@ -60,10 +58,14 @@ interface Product {
   variants?: ProductVariant[];
   categoryId?: string;
   category?: { id: string; name: string };
+  reviews?: Review[];
 }
 
 interface ProductDetailProps {
-  product: Product;
+  data: {
+    product: Product;
+    similarProducts: Product[];
+  };
 }
 
 function shuffleArray<T>(array: T[]): T[] {
@@ -73,9 +75,20 @@ function shuffleArray<T>(array: T[]): T[] {
     .map(({ item }) => item);
 }
 
-const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [reviewStats, setReviewStats] = useState({ averageRating: 0, total: 0 });
+const ProductDetail: React.FC<ProductDetailProps> = ({ data }) => {
+  const { product, similarProducts } = data;
+  
+  // Initialize reviews from product.reviews
+  const [reviews, setReviews] = useState<Review[]>(product.reviews || []);
+  // Calculate review stats from product.reviews
+  const [reviewStats, setReviewStats] = useState(() => {
+    const total = product.reviews?.length || 0;
+    const averageRating = total > 0 
+      ? product.reviews!.reduce((sum, review) => sum + review.rating, 0) / total 
+      : 0;
+    return { averageRating, total };
+  });
+  
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
     product.variants && product.variants.length > 0 ? product.variants[0] : null
   );
@@ -84,33 +97,32 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isImageZoomed, setIsImageZoomed] = useState(false);
-
   const { addToCart } = useCartStore();
-
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [reviewsOpen, setReviewsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
-
   const [touchStart, setTouchStart] = useState(0);
-
   const thumbnailsRef = useRef<HTMLDivElement>(null);
-
+  
   const isDigital = product.productType === 'digital';
-
-  // Similar products state + carousel refs
-  const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
-  const [similarLoading, setSimilarLoading] = useState(false);
+  
+  // Similar products carousel refs
   const carouselRef = useRef<HTMLDivElement | null>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-
+  
+  // Memoize shuffled similar products
+  const displaySimilarProducts = useMemo(() => {
+    return shuffleArray(similarProducts).slice(0, 12);
+  }, [similarProducts]);
+  
   const updateCarouselButtons = () => {
     const el = carouselRef.current;
     if (!el) return;
     setCanScrollLeft(el.scrollLeft > 0);
     setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
   };
-
+  
   // Helper: escape HTML to avoid XSS, then linkify URLs and convert newlines to <br/>
   const escapeHtml = (str: string) =>
     str
@@ -119,7 +131,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
-
+      
   const linkify = (raw?: string) => {
     if (!raw) return '';
     // 1) escape user input (prevents XSS)
@@ -133,77 +145,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="text-sky-500 underline">${match}</a>`;
     });
   };
-
-  // Fetch reviews
-  const fetchReviews = async () => {
-    try {
-      const reviewData = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/reviews/product/${product.id}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`,
-        },
-      });
-      setReviews(reviewData.reviews || []);
-      setReviewStats({
-        averageRating: reviewData.averageRating || 0,
-        total: reviewData.total || 0,
-      });
-    } catch (err) {
-      console.error('Error fetching reviews:', err);
-      setReviews([]);
-      setReviewStats({ averageRating: 0, total: 0 });
-    }
-  };
-
-  useEffect(() => {
-    fetchReviews();
-  }, [product.id]);
-
-  // Fetch similar products (by type -> categoryId -> productType fallback)
-  useEffect(() => {
-    let canceled = false;
-
-    const fetchSimilar = async () => {
-      try {
-        setSimilarLoading(true);
-        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products`);
-        const list: Product[] = data?.products || data?.data?.products || [];
-        if (!Array.isArray(list)) {
-          if (!canceled) setSimilarProducts([]);
-          return;
-        }
-
-        const keyType = product.type?.trim() ?? null;
-        const keyCategory = product.categoryId ?? product.category?.id ?? null;
-
-        let filtered: Product[] = [];
-        if (keyType) {
-          filtered = list.filter((p) => p.id !== product.id && p.type && p.type.trim() === keyType);
-        }
-        if (filtered.length === 0 && keyCategory) {
-          filtered = list.filter((p) => p.id !== product.id && (p.categoryId === keyCategory || p.category?.id === keyCategory));
-        }
-        if (filtered.length === 0) {
-          filtered = list.filter((p) => p.id !== product.id && p.productType === product.productType);
-        }
-
-        if (!canceled) {
-          const shuffled = shuffleArray(filtered);
-          setSimilarProducts(shuffled.slice(0, 12)); // random selection
-        }
-      } catch (err) {
-        console.error('Error fetching similar products:', err);
-        if (!canceled) setSimilarProducts([]);
-      } finally {
-        if (!canceled) setSimilarLoading(false);
-      }
-    };
-
-    fetchSimilar();
-    return () => {
-      canceled = true;
-    };
-  }, [product.id, product.type, product.categoryId, product.productType, product.category]);
-
+  
   useEffect(() => {
     // attach resize/scroll listeners to update nav button state
     const el = carouselRef.current;
@@ -217,8 +159,8 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       el.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onResize);
     };
-  }, [similarProducts]);
-
+  }, [displaySimilarProducts]);
+  
   const scrollCarousel = (direction: 'left' | 'right') => {
     const el = carouselRef.current;
     if (!el) return;
@@ -227,7 +169,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
     const target = direction === 'left' ? el.scrollLeft - offset : el.scrollLeft + offset;
     el.scrollTo({ left: target, behavior: 'smooth' });
   };
-
+  
   // Touch swipe support for carousel (optional)
   const touchStartX = useRef<number | null>(null);
   const handleCarouselTouchStart = (e: React.TouchEvent) => {
@@ -244,21 +186,21 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
     }
     touchStartX.current = null;
   };
-
+  
   const nextImage = () => {
     const images = selectedVariant?.images || product.images;
     const nextIndex = (currentImageIndex + 1) % images.length;
     setCurrentImageIndex(nextIndex);
     scrollToThumbnail(nextIndex);
   };
-
+  
   const prevImage = () => {
     const images = selectedVariant?.images || product.images;
     const prevIndex = (currentImageIndex - 1 + images.length) % images.length;
     setCurrentImageIndex(prevIndex);
     scrollToThumbnail(prevIndex);
   };
-
+  
   const scrollToThumbnail = (index: number) => {
     if (thumbnailsRef.current) {
       const thumbnailElement = thumbnailsRef.current.children[index] as HTMLElement;
@@ -271,53 +213,50 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       }
     }
   };
-
+  
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.touches[0].clientX);
   };
-
+  
   const handleTouchEnd = (e: React.TouchEvent) => {
     const touchEnd = e.changedTouches[0].clientX;
     const swipeDistance = touchEnd - touchStart;
     const swipeThreshold = 50;
-
     if (swipeDistance > swipeThreshold) {
       prevImage();
     } else if (swipeDistance < -swipeThreshold) {
       nextImage();
     }
   };
-
+  
   const currentImages = selectedVariant?.images || product.images || [];
-
+  
   const handleVariantChange = (variant: ProductVariant) => {
     setSelectedVariant(variant);
     setCurrentImageIndex(0); // Reset image index when variant changes
   };
-
+  
   const handleQuantityChange = (change: number) => {
     const newQuantity = quantity + change;
     if (newQuantity >= 1 && newQuantity <= 10) {
       setQuantity(newQuantity);
     }
   };
-
+  
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'INR',
     }).format(price);
   };
-
+  
   const handleAddToCart = () => {
     if (!isDigital && product.sizes && product.sizes.length > 0 && !selectedSize) {
       toast.error('Please select a size before adding to cart.');
       return;
     }
     const itemPrice = selectedVariant?.price || product.price;
-
     const selectedSizeObject = product.sizes?.find((s) => s.size === selectedSize);
-
     const cartItem = {
       id: product.id,
       name: product.name,
@@ -330,11 +269,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       color: selectedVariant?.color || 'N/A',
       productType: product.productType,
     };
-
     addToCart(cartItem);
     toast.success(`${quantity} of ${product.name} ${isDigital ? '(Digital)' : `(${selectedSize || 'N/A'})`} added to cart!`);
   };
-
+  
   if (!product) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -354,7 +292,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
       </div>
     );
   }
-
+  
   return (
     <div className={`min-h-screen bg-white ${unica.variable} font-unica`}>
       <div className="max-w-7xl mx-auto px-4 py-4 lg:py-4">
@@ -428,7 +366,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
               <h1 className={`lg:px-8 py-1 text-3xl font-light text-gray-900 tracking-tight ${cinzel.className}`}>
                 {product.name || 'Product Name'}
               </h1>
-
               {/* DESCRIPTION - linkified and safe */}
               <div
                 className={`${sourceSans.className} lg:px-8 text-gray-700 leading-relaxed capitalize`}
@@ -439,7 +376,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 }}
                 dangerouslySetInnerHTML={{ __html: linkify(product.description || 'No description available') }}
               />
-
               <div className="lg:px-8 flex items-baseline space-x-3">
                 <span className={`${unica.className} text-lg font- text-gray-900`}>
                   {formatPrice(selectedVariant?.price || product.price)}
@@ -452,7 +388,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 )}
               </div>
             </div>
-
             {product.variants && product.variants.length > 0 && (
               <div className="space-y-4 lg:px-8">
                 <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">
@@ -476,7 +411,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               </div>
             )}
-
             {!isDigital && product.sizes && product.sizes.length > 0 && (
               <div className="space-y-4 lg:px-8">
                 <div className="flex items-center justify-between">
@@ -502,7 +436,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               </div>
             )}
-
             {isDigital && (
               <div className="space-y-4 lg:px-8">
                 <h3 className="text-sm font-medium text-gray-900 uppercase tracking-wide">Download Information</h3>
@@ -566,7 +499,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 <span className="text-xs text-gray-600 font-medium">{isDigital ? 'Secure Download' : '2 Year Warranty'}</span>
               </div>
             </div>
-
             <div className="border-t border-gray-200">
               <button
                 onClick={() => setDetailsOpen(!detailsOpen)}
@@ -585,7 +517,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 </div>
               )}
             </div>
-
             {reviews.length > 0 && (
               <div className="border-t border-gray-200">
                 <button
@@ -644,7 +575,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                 )}
               </div>
             )}
-
             {!isDigital && (
               <div className="border-t border-gray-200">
                 <button
@@ -700,13 +630,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
             )}
           </div>
         </div>
-
         {/* Premium Similar Products Section */}
         <div className="mt-16 pt-12 border-t border-gray-200">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className={`${cinzel.className} text-2xl md:text-3xl font-semibold text-gray-900`}>You might also like</h2>
-             </div>
+            </div>
             <div className="hidden md:flex items-center space-x-3">
               <button
                 onClick={() => scrollCarousel('left')}
@@ -726,18 +655,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
               </button>
             </div>
           </div>
-
-          {similarLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="aspect-[3/4] bg-gray-200 rounded-lg mb-4"></div>
-                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                </div>
-              ))}
-            </div>
-          ) : similarProducts.length === 0 ? (
+          {displaySimilarProducts.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-lg">
               <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center">
                 <ShoppingBag className="w-8 h-8 text-gray-400" />
@@ -764,7 +682,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                     display: none;
                   }
                 `}</style>
-                {similarProducts.map((p) => (
+                {displaySimilarProducts.map((p) => (
                   <div key={p.id} className="flex-shrink-0 snap-start w-[45%] sm:w-[30%] md:w-56 lg:w-64 xl:w-72 group">
                     <Link href={`/products/${p.id}`}>
                       <div className="bg-white rounded-sm overflow-hidden transition-all duration-300 hover:shadow-sm border border-gray-100">
@@ -777,7 +695,6 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product }) => {
                             loading="lazy"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                          
                         </div>
                         
                         {/* Product Info */}

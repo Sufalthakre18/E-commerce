@@ -1,7 +1,4 @@
-// Updated frontend EditProductPage (fixed deletions to use database ids instead of publicIds)
-
 'use client';
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -64,7 +61,6 @@ interface Category {
 export default function EditProductPage() {
   const router = useRouter();
   const { id } = useParams() as { id: string };
-
   const [formData, setFormData] = useState<FormDataType>({
     name: '',
     price: 0,
@@ -77,7 +73,6 @@ export default function EditProductPage() {
     sizes: [],
     variants: [],
   });
-
   const [newImages, setNewImages] = useState<File[]>([]);
   const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
@@ -95,51 +90,56 @@ export default function EditProductPage() {
 
   // Fetch product data
   const { data: productData, isLoading: productLoading } = useQuery<{
+    success: boolean;
     data: {
-      name: string;
-      price: number;
-      stock: number;
-      description: string;
-      details: string;
-      categoryId: string;
-      productType: 'physical' | 'digital';
-      type: string;
-      sizes: Size[];
-      variants: Variant[];
-      images: ProductImage[];
-      digitalFiles: DigitalFile[];
+      product: {
+        name: string;
+        price: number;
+        stock: number;
+        description: string;
+        details: string;
+        categoryId: string;
+        productType: 'physical' | 'digital';
+        type: string;
+        sizes: Size[];
+        variants: Variant[];
+        images: ProductImage[];
+        digitalFiles: DigitalFile[];
+      };
+      similarProducts: any[];
     };
   }>({
     queryKey: ['product', id],
-    queryFn: () => fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`),
+    queryFn: () => fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products/products-with-reviews/${id}`),
     enabled: !!id,
   });
 
   useEffect(() => {
-    if (productData?.data) {
+    if (productData?.data?.product) {
+      const product = productData.data.product;
       setFormData({
-        name: productData.data.name || '',
-        price: productData.data.price || 0,
-        stock: productData.data.stock || 0,
-        description: productData.data.description || '',
-        details: productData.data.details || '',
-        categoryId: productData.data.categoryId || '',
-        productType: productData.data.productType || 'physical',
-        type: productData.data.type || '',
-        sizes: productData.data.sizes || [],
-        variants: (productData.data.variants || []).map((v: Variant) => ({
+        name: product.name || '',
+        price: product.price || 0,
+        stock: product.stock || 0,
+        description: product.description || '',
+        details: product.details || '',
+        categoryId: product.categoryId || '',
+        productType: product.productType || 'physical',
+        type: product.type || '',
+        sizes: product.sizes || [],
+        variants: (product.variants || []).map((v: Variant) => ({
           id: v.id,
           color: v.color || '',
           colorCode: v.colorCode || '#000000',
-          price: v.price || productData.data.price || 0,
+          price: v.price || product.price || 0,
           images: v.images || [],
           imagesToDelete: [],
           imageFiles: [],
           newImageIndices: [],
         })),
       });
-      setExistingImages(productData.data.images || []);
-      setExistingDigitalFiles(productData.data.digitalFiles || []);
+      setExistingImages(product.images || []);
+      setExistingDigitalFiles(product.digitalFiles || []);
     }
   }, [productData]);
 
@@ -167,7 +167,6 @@ export default function EditProductPage() {
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value, type } = e.target;
       const finalValue = type === 'number' ? parseFloat(value) || 0 : value;
-
       setFormData(prev => ({ ...prev, [name]: finalValue }));
       setErrors(prev => ({ ...prev, [name]: '' }));
     },
@@ -175,64 +174,62 @@ export default function EditProductPage() {
   );
 
   const validateForm = () => {
-  const newErrors: Record<string, string> = {};
-
-  if (!formData.name.trim()) newErrors.name = 'Product name is required';
-  if (formData.price <= 0) newErrors.price = 'Price must be greater than 0';
-  if (formData.productType === 'physical' && formData.stock < 0) newErrors.stock = 'Stock cannot be negative';
-  if (!formData.description.trim()) newErrors.description = 'Description is required';
-  if (!formData.details.trim()) newErrors.details = 'Details is required';
-  if (!formData.type.trim()) newErrors.type = 'Type is required';
-  if (!formData.categoryId) newErrors.categoryId = 'Please select a category';
-
-  formData.variants.forEach((variant, index) => {
-    if (!variant.color.trim()) newErrors[`variant_${index}_color`] = `Color is required for variant ${index + 1}`;
-    if (!variant.colorCode.trim()) newErrors[`variant_${index}_colorCode`] = `Color code is required for variant ${index + 1}`;
-    if (variant.price <= 0) newErrors[`variant_${index}_price`] = `Price must be greater than 0 for variant ${index + 1}`;
-  });
-
-  formData.sizes.forEach((size, index) => {
-    if (!size.size.trim()) newErrors[`size_${index}_size`] = `Size is required for size ${index + 1}`;
-    if (size.stock < 0) newErrors[`size_${index}_stock`] = `Stock cannot be negative for size ${index + 1}`;
-  });
-
-  // Validate imagesToDelete and digitalFilesToDelete
-  imagesToDelete.forEach((id, index) => {
-    if (!id || typeof id !== 'string') {
-      newErrors[`imageToDelete_${index}`] = `Invalid image ID for deletion at index ${index + 1}`;
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = 'Product name is required';
+    if (formData.price <= 0) newErrors.price = 'Price must be greater than 0';
+    if (formData.productType === 'physical' && formData.stock < 0) newErrors.stock = 'Stock cannot be negative';
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.details.trim()) newErrors.details = 'Details is required';
+    if (!formData.type.trim()) newErrors.type = 'Type is required';
+    if (!formData.categoryId) newErrors.categoryId = 'Please select a category';
+    
+    formData.variants.forEach((variant, index) => {
+      if (!variant.color.trim()) newErrors[`variant_${index}_color`] = `Color is required for variant ${index + 1}`;
+      if (!variant.colorCode.trim()) newErrors[`variant_${index}_colorCode`] = `Color code is required for variant ${index + 1}`;
+      if (variant.price <= 0) newErrors[`variant_${index}_price`] = `Price must be greater than 0 for variant ${index + 1}`;
+    });
+    
+    formData.sizes.forEach((size, index) => {
+      if (!size.size.trim()) newErrors[`size_${index}_size`] = `Size is required for size ${index + 1}`;
+      if (size.stock < 0) newErrors[`size_${index}_stock`] = `Stock cannot be negative for size ${index + 1}`;
+    });
+    
+    // Validate imagesToDelete and digitalFilesToDelete
+    imagesToDelete.forEach((id, index) => {
+      if (!id || typeof id !== 'string') {
+        newErrors[`imageToDelete_${index}`] = `Invalid image ID for deletion at index ${index + 1}`;
+      }
+    });
+    
+    digitalFilesToDelete.forEach((id, index) => {
+      if (!id || typeof id !== 'string') {
+        newErrors[`digitalFileToDelete_${index}`] = `Invalid digital file ID for deletion at index ${index + 1}`;
+      }
+    });
+    
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      console.log('Form validation errors:', newErrors);
+      toast.error(
+        <div>
+          <p>Please fix the following form errors:</p>
+          <ul className="list-disc pl-4">
+            {Object.entries(newErrors).map(([key, message]) => (
+              <li key={key} className="text-sm">{message}</li>
+            ))}
+          </ul>
+        </div>,
+        { duration: 5000 }
+      );
+      return false;
     }
-  });
-  digitalFilesToDelete.forEach((id, index) => {
-    if (!id || typeof id !== 'string') {
-      newErrors[`digitalFileToDelete_${index}`] = `Invalid digital file ID for deletion at index ${index + 1}`;
-    }
-  });
-
-  setErrors(newErrors);
-
-  if (Object.keys(newErrors).length > 0) {
-    console.log('Form validation errors:', newErrors);
-    toast.error(
-      <div>
-        <p>Please fix the following form errors:</p>
-        <ul className="list-disc pl-4">
-          {Object.entries(newErrors).map(([key, message]) => (
-            <li key={key} className="text-sm">{message}</li>
-          ))}
-        </ul>
-      </div>,
-      { duration: 5000 }
-    );
-    return false;
-  }
-
-  return true;
-};
+    return true;
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'digital') => {
     const files = e.target.files;
     if (!files) return;
-
+    
     const validFiles = Array.from(files).filter(file => {
       if (type === 'image') {
         const isValid = file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024;
@@ -245,7 +242,7 @@ export default function EditProductPage() {
         return isValid;
       }
     });
-
+    
     if (type === 'image') {
       setNewImages(prev => [...prev, ...validFiles]);
     } else {
@@ -345,7 +342,7 @@ export default function EditProductPage() {
   const handleVariantImageChange = (variantIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-
+    
     const validFiles = Array.from(files).filter(file => {
       const isValid = file.type.startsWith('image/') && file.size <= 5 * 1024 * 1024;
       if (!isValid) {
@@ -356,9 +353,9 @@ export default function EditProductPage() {
       }
       return isValid;
     });
-
+    
     if (validFiles.length === 0) return;
-
+    
     setVariantImages(prev => [...prev, ...validFiles]);
     setFormData(prev => ({
       ...prev,
@@ -375,7 +372,6 @@ export default function EditProductPage() {
         return variant;
       }),
     }));
-
     e.target.value = '';
   };
 
@@ -423,11 +419,10 @@ export default function EditProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validateForm()) {
       return;
     }
-
+    
     const form = new FormData();
     form.append('name', formData.name);
     form.append('price', formData.price.toString());
@@ -437,31 +432,32 @@ export default function EditProductPage() {
     form.append('categoryId', formData.categoryId);
     form.append('productType', formData.productType);
     form.append('type', formData.type);
-
+    
     // Ensure sizes and variants are sent as valid JSON strings
     form.append('sizes', formData.sizes.length > 0 ? JSON.stringify(formData.sizes) : '[]');
     form.append('variants', formData.variants.length > 0 ? JSON.stringify(formData.variants.map(v => ({
       ...v,
       imageFiles: undefined, // Exclude File objects from JSON
     }))) : '[]');
-
+    
     // Append deletion arrays with validation
     const uniqueImagesToDelete = [...new Set(imagesToDelete.filter(id => id && typeof id === 'string'))];
     uniqueImagesToDelete.forEach(id => form.append('imagesToDelete[]', id));
+    
     const uniqueDigitalFilesToDelete = [...new Set(digitalFilesToDelete.filter(id => id && typeof id === 'string'))];
     uniqueDigitalFilesToDelete.forEach(id => form.append('digitalFilesToDelete[]', id));
-
+    
     // Append file uploads
     newImages.forEach(file => form.append('images', file));
     newDigitalFiles.forEach(file => form.append('digitalFiles', file));
     variantImages.forEach(file => form.append('variantImages', file));
-
+    
     // Log FormData contents for debugging
     console.log('FormData contents:');
     for (const [key, value] of form.entries()) {
       console.log(`${key}:`, value instanceof File ? value.name : value);
     }
-
+    
     updateMutation.mutate(form);
   };
 
@@ -493,7 +489,6 @@ export default function EditProductPage() {
         </button>
         <h1 className="text-2xl font-bold text-gray-900">Edit Product</h1>
       </div>
-
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic Information */}
         <div className="bg-gray-50 p-6 rounded-lg shadow-sm">

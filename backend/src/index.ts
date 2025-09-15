@@ -15,7 +15,6 @@ import PromoRoutes from './routes/promotion.routes';
 import adminRoutes from "../src/routes/admin.routes";
 import adminProductRoutes from "../src/routes/adminProduct.routes";
 import adminCategoryRoutes from "../src/routes/adminCategory.routes";
-import adminUsersRoutes from "../src/routes/adminUser.routes";
 import adminReviewRoutes from "../src/routes/adminReview.routes";
 import adminDashboardRoutes from '../src/routes/adminDashboard.routes';
 
@@ -46,7 +45,6 @@ app.use("/api/promo", PromoRoutes); // here admin also can access the promo rout
 app.use("/api/admin", adminRoutes); // 
 app.use("/api/admin/products", adminProductRoutes); //  
 app.use("/api/admin/category", adminCategoryRoutes);//
-app.use("/api/admin/users", adminUsersRoutes); // // 
 app.use("/api/admin/reviews", adminReviewRoutes);
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 

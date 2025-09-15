@@ -131,42 +131,34 @@ const EditorsPicks: React.FC<{ category?: string; newClass?:string }> = ({ categ
     return () => observer.current?.disconnect();
   }, []);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products`);
-        const apiProducts: ApiProduct[] = data.products || [];
-
-        // Filter by category (parent.name === category prop)
-        const filtered = apiProducts.filter(
-          (p) => p.category.parent?.name === category
-        );
-
-        // Shuffle and pick random 5 (or all if less)
-        const shuffled = filtered.sort(() => 0.5 - Math.random());
-        const selected = shuffled.slice(0, 5);
-
-        // Map to Product interface
-        const mapped: Product[] = selected.map((p) => ({
-          id: p.id,
-          name: p.name,
-          price: `₹${p.price}`,
-          image: p.images[0]?.url || 'https://via.placeholder.com/600x800',
-          category: p.category.name,
-          description: p.description.split('\r\n')[0].trim(),
-        }));
-
-        setProducts(mapped);
-      } catch (error) {
-        console.error('Failed to fetch products:', error);
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, [category]);
+ useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      // Use the new endpoint with category parameter
+      const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/products/featured?category=${category}`);
+      const apiProducts: ApiProduct[] = data.data || [];
+      
+      // Map to Product interface
+      const mapped: Product[] = apiProducts.map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: `₹${p.price}`,
+        image: p.images[0]?.url || 'https://via.placeholder.com/600x800',
+        category: p.category.name,
+        description: p.description.split('\r\n')[0].trim(),
+      }));
+      
+      setProducts(mapped);
+    } catch (error) {
+      console.error('Failed to fetch featured products:', error);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  fetchProducts();
+}, [category]); // Only refetch when category changes
 
   const handleTouch = useCallback((elementId: string) => {
     if (isMobile) {

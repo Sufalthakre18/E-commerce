@@ -1,5 +1,7 @@
 import { prisma } from "../lib/prisma";
 import { deleteFromCloudinary, uploadOnCloudinary } from "../lib/cloudinary";
+import { Prisma } from "@prisma/client";
+
 
 
 export const productService = {
@@ -88,7 +90,7 @@ export const productService = {
       return product;
     });
   },
-  async getAllPaginated(filters: {
+   async getAllPaginated(filters: {
     page?: number;
     limit?: number;
     categoryId?: string;
@@ -99,6 +101,7 @@ export const productService = {
     subCategory?: string;
     productType?: string;
     type?: string;
+    fetchAll?: boolean;  // Add this parameter
   }) {
     const {
       page = 1,
@@ -110,19 +113,28 @@ export const productService = {
       mainCategory,
       subCategory,
       productType,
-      type
+      type,
+      fetchAll = false  // Default to false
     } = filters;
-
-    const skip = (page - 1) * limit;
+    
+    // If fetchAll is true, we'll get all products without pagination
+    const skip = fetchAll ? undefined : (page - 1) * limit;
+    const take = fetchAll ? undefined : limit;
+    
     const where: any = {
       ...(productType ? { productType } : {}),
       ...(type ? { type } : {}),
-      category: {
-        name: subCategory,
-        parent: { name: mainCategory },
-      },
     };
-
+    
+    // Add category filtering if mainCategory or subCategory is provided
+    if (mainCategory || subCategory) {
+      where.category = {};
+      if (subCategory) where.category.name = subCategory;
+      if (mainCategory) {
+        where.category.parent = { name: mainCategory };
+      }
+    }
+    
     if (categoryId) where.categoryId = categoryId;
     if (search) {
       where.name = { contains: search, mode: "insensitive" };
@@ -132,12 +144,12 @@ export const productService = {
       if (minPrice) where.price.gte = minPrice;
       if (maxPrice) where.price.lte = maxPrice;
     }
-
+    
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
         skip,
-        take: limit,
+        take,
         include: {
           images: true,
           category: { include: { parent: true } },
@@ -148,12 +160,12 @@ export const productService = {
       }),
       prisma.product.count({ where }),
     ]);
-
+    
     return {
       products,
       total,
-      page,
-      totalPages: Math.ceil(total / limit),
+      page: fetchAll ? 1 : page,
+      totalPages: fetchAll ? 1 : Math.ceil(total / limit),
     };
   },
   // filter by category name instead of ID
@@ -190,21 +202,6 @@ export const productService = {
     };
   },
 
-  async getById(id: string) {
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        images: true,
-        category: true,
-        sizes: true,
-        variants: { include: { images: true } },
-        digitalFiles: true, // Include for details
-      },
-    });
-
-    if (!product) throw new Error("Product not found");
-    return product;
-  }, // Used by user to get product by ID
  async update(id: string, data: any) {
     const {
       name,
@@ -396,7 +393,7 @@ export const productService = {
         description,
         details,
         price,
-        stock: productType === "digital" ? 999999 : stock,
+        stock: productType === "digital" ? 10 : stock,
         productType,
         type,
         category: categoryId ? { connect: { id: categoryId } } : undefined,
@@ -536,22 +533,185 @@ export const productService = {
     return { message: `Deleted ${products.length} products from category` };
   }, // Used by admin to delete all products in a category 
   async getFilteredProducts({
-    search,
-    categoryId,
-    inStockOnly,
-  }: {
-    search?: string;
-    categoryId?: string;
-    inStockOnly?: boolean;
-  }) {
-    return await prisma.product.findMany({
-      where: {
-        name: search ? { contains: search, mode: "insensitive" } : undefined,
-        categoryId: categoryId || undefined,
-        stock: inStockOnly ? { gt: 0 } : undefined,
+  search,
+  categoryId,
+  inStockOnly,
+  skip = 0,
+  take = 5,
+}: {
+  search?: string;
+  categoryId?: string;
+  inStockOnly?: boolean;
+  skip?: number;
+  take?: number;
+}) {
+  return await prisma.product.findMany({
+    where: {
+      name: search ? { contains: search, mode: "insensitive" } : undefined,
+      categoryId: categoryId || undefined,
+      stock: inStockOnly ? { gt: 0 } : undefined,
+    },
+    include: { category: true, images: true, sizes: true, digitalFiles: true },
+    orderBy: { createdAt: "desc" },
+    skip,
+    take,
+  });
+}
+,
+async countFilteredProducts({
+  search,
+  categoryId,
+  inStockOnly,
+}: {
+  search?: string;
+  categoryId?: string;
+  inStockOnly?: boolean;
+}) {
+  return await prisma.product.count({
+    where: {
+      name: search ? { contains: search, mode: "insensitive" } : undefined,
+      categoryId: categoryId || undefined,
+      stock: inStockOnly ? { gt: 0 } : undefined,
+    },
+  });
+},
+async getProductWithReviews(id: string) {
+  const [product, similarProducts] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id },
+      include: {
+        images: true,
+        category: {
+          include: {
+            parent: true, // Include parent category for frontend compatibility
+          },
+        },
+        sizes: true,
+        variants: { include: { images: true } },
+        reviews: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
       },
-      include: { category: true, images: true, sizes: true, digitalFiles: true },
-      orderBy: { createdAt: "desc" },
+    }),
+    // Fetch similar products
+    prisma.product.findMany({
+      where: {
+        AND: [
+          { id: { not: id } }, // Exclude the current product
+          {
+            OR: [
+              { categoryId: { equals: (await prisma.product.findUnique({ where: { id }, select: { categoryId: true } }))?.categoryId } },
+              { type: { equals: (await prisma.product.findUnique({ where: { id }, select: { type: true } }))?.type } },
+            ],
+          },
+        ],
+      },
+      include: {
+        images: true,
+        category: {
+          include: {
+            parent: true, 
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc', // Fallback sorting
+      },
+      take: 5, // Limit to 5 similar products
+    }),
+  ]);
+
+  if (!product) throw new Error("Product not found");
+
+  // Randomize similar products
+  const shuffledSimilarProducts = similarProducts.sort(() => 0.5 - Math.random()).slice(0, 5);
+
+  return {
+    product,
+    similarProducts: shuffledSimilarProducts,
+  };
+},
+async getFeaturedProducts(category?: string) {
+  const count = Math.floor(Math.random() * 6) + 5; // 5-10 products
+  
+  // Build the where clause based on category
+  const where: any = {};
+  
+  if (category) {
+    // Try to find by parent category first
+    where.category = {
+      parent: {
+        name: category
+      }
+    };
+  }
+  
+  try {
+    // First try with the category filter
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        images: true,
+        category: {
+          include: {
+            parent: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: count, // Get more than we need for randomization
     });
-  } // Used by user/admin to get all products with filters
+    
+    // If we got products, shuffle and return the requested count
+    if (products.length > 0) {
+      const shuffled = [...products].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, count).map(product => ({
+        ...product,
+        digitalFiles: [] // Always empty for security
+      }));
+    }
+    
+    // If no products found with category filter, try without it
+    if (category) {
+      const allProducts = await prisma.product.findMany({
+        include: {
+          images: true,
+          category: {
+            include: {
+              parent: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: count * 2,
+      });
+      
+      const shuffled = [...allProducts].sort(() => 0.5 - Math.random());
+      return shuffled.slice(0, count).map(product => ({
+        ...product,
+        digitalFiles: []
+      }));
+    }
+    
+    // If still no products, return empty array
+    return [];
+  } catch (error) {
+    console.error('Error in getFeaturedProducts:', error);
+    throw error;
+  }
+}
 };

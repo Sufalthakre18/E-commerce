@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { getAuthToken } from '@/lib/utils/auth';
 import { Package, Plus, Search, Filter, TrendingUp, AlertCircle, Edit, Trash2, Eye } from 'lucide-react';
 import { fetchWrapper } from '@/lib/api/fetchWrapper';
+import Pagination from '@/components/ui/productsui/Pagination'; // Import the pagination component
 
 type Product = {
   id: string;
@@ -25,8 +26,8 @@ type Product = {
 
 // Define expected API response type
 type ApiResponse =
-  | { success: true; data: Product[] }
-  | { products: Product[]; total: number; page: number; limit: number };
+  | { success: true; data: Product[]; pagination?: { total: number; page: number; limit: number; totalPages: number } }
+  | { products: Product[]; total: number; page: number; limit: number; totalPages: number };
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -35,14 +36,51 @@ export default function AdminProductsPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [loading, setLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const itemsPerPage = 10;
 
   useEffect(() => {
+    fetchProducts();
+  }, [currentPage, searchTerm, selectedCategory]);
+
+  const fetchProducts = () => {
     setLoading(true);
-    fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products`)
+    
+    // Build query parameters
+    const params = new URLSearchParams({
+      page: currentPage.toString(),
+      limit: itemsPerPage.toString(),
+    });
+    
+    if (searchTerm) {
+      params.append('search', searchTerm);
+    }
+    
+    if (selectedCategory !== 'all') {
+      params.append('category', selectedCategory);
+    }
+    
+    fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products?${params.toString()}`)
       .then((data: ApiResponse) => {
         // Extract products array from response
         const productArray = 'data' in data ? data.data : 'products' in data ? data.products : [];
         setProducts(Array.isArray(productArray) ? productArray : []);
+        
+        // Extract pagination info
+        if ('pagination' in data && data.pagination) {
+          setTotalPages(data.pagination.totalPages);
+          setTotalProducts(data.pagination.total);
+        } else if ('totalPages' in data) {
+          setTotalPages(data.totalPages);
+          setTotalProducts(data.total);
+        } else {
+          // Fallback if pagination info is not available
+          setTotalPages(1);
+          setTotalProducts(productArray.length);
+        }
+        
         setLoading(false);
       })
       .catch((err) => {
@@ -50,7 +88,11 @@ export default function AdminProductsPage() {
         setProducts([]);
         setLoading(false);
       });
-  }, []);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   async function handleDelete(id: string) {
     if (!confirm('Are you sure you want to delete this product? This will permanently delete the product, its variants, images, and all related data.')) return;
@@ -59,7 +101,12 @@ export default function AdminProductsPage() {
       await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/admin/products/${id}`, {
         method: 'DELETE',
       });
-      setProducts(prev => prev.filter(p => p.id !== id));
+      // If we're on the last page and it's the only item, go to previous page
+      if (products.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      } else {
+        fetchProducts(); // Refresh current page
+      }
     } catch (err) {
       console.error('Delete failed:', err);
       alert(`Failed to delete product: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -68,14 +115,7 @@ export default function AdminProductsPage() {
     }
   }
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      selectedCategory === 'all' || product.category.name === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = products; // No need to filter on client side anymore
 
   const categories = [...new Set(products.map(p => p.category.name))];
   const totalValue = products.reduce((sum, p) => sum + p.price * p.stock, 0);
@@ -113,12 +153,11 @@ export default function AdminProductsPage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 mt-4 sm:mt-6">
-            <StatsCard icon={<Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />} label="Total Products" value={products.length} color="from-indigo-500 to-indigo-600" />
+            <StatsCard icon={<Package className="w-5 h-5 sm:w-6 sm:h-6 text-white" />} label="Total Products" value={totalProducts} color="from-indigo-500 to-indigo-600" />
             <StatsCard icon={<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />} label="Inventory Value" value={`₹${totalValue.toLocaleString()}`} color="from-emerald-500 to-teal-600" />
             <StatsCard icon={<AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />} label="Low Stock Items" value={lowStockCount} color="from-amber-500 to-orange-600" />
           </div>
         </div>
-
         {/* Controls */}
         <div className="bg-white border border-indigo-100 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 flex flex-col gap-3 sm:gap-4 shadow-sm">
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -161,7 +200,6 @@ export default function AdminProductsPage() {
             </button>
           </div>
         </div>
-
         {/* Product List */}
         {filteredProducts.length === 0 ? (
           <div className="text-center py-12 sm:py-16 bg-white rounded-xl border border-indigo-100 shadow-sm">
@@ -169,20 +207,34 @@ export default function AdminProductsPage() {
             <p className="text-sm sm:text-base text-indigo-600">No products found</p>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
-            {filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} handleDelete={handleDelete} deleteLoading={deleteLoading} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
+              {filteredProducts.map(product => (
+                <ProductCard key={product.id} product={product} handleDelete={handleDelete} deleteLoading={deleteLoading} />
+              ))}
+            </div>
+            <Pagination 
+              currentPage={currentPage} 
+              totalPages={totalPages} 
+              onPageChange={handlePageChange} 
+            />
+          </>
         ) : (
-          <ProductTable products={filteredProducts} handleDelete={handleDelete} deleteLoading={deleteLoading} />
+          <>
+            <ProductTable products={filteredProducts} handleDelete={handleDelete} deleteLoading={deleteLoading} />
+            <Pagination 
+              currentPage={currentPage} 
+              totalPages={totalPages} 
+              onPageChange={handlePageChange} 
+            />
+          </>
         )}
       </div>
     </div>
   );
 }
 
-// Components
+// Components remain the same...
 function StatsCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number | string; color: string }) {
   return (
     <div className={`p-3 sm:p-4 rounded-xl bg-gradient-to-r ${color} text-white shadow-md hover:shadow-lg transition-all`}>

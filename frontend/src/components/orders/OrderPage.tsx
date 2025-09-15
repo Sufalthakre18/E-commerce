@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { fetchWrapper } from '@/lib/api/fetchWrapper';
 import { getAuthToken } from '@/lib/utils/auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { toast } from 'sonner';
-import { Source_Sans_3,Bebas_Neue } from 'next/font/google';
+import { Source_Sans_3, Bebas_Neue } from 'next/font/google';
 import { Package, ChevronLeft, ChevronRight, Download, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 const sourceSansPro = Source_Sans_3({ subsets: ['latin'], weight: ['400', '600'] });
-const bebasNeue = Bebas_Neue({subsets: ['latin-ext'],weight: '400'});
+const bebasNeue = Bebas_Neue({ subsets: ['latin-ext'], weight: '400' });
 
 interface Order {
   id: string;
@@ -53,42 +53,44 @@ const calculateTimeRemaining = (createdAt: string) => {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<TimeRemaining>({});
-  const itemsPerPage = 5;
+  const itemsPerPage = 5; // Aligned with backend limit
   const router = useRouter();
 
-  // Update countdown timer every second for digital products
+  // Memoized timer calculation to reduce re-renders
+  const timeRemaining = useMemo(() => {
+    const newTimeRemaining: TimeRemaining = {};
+    orders.forEach((order) => {
+      if (['PAID', 'DELIVERED'].includes(order.status)) {
+        order.items.forEach((item) => {
+          if (item.product.productType === 'digital' && item.downloadLinks) {
+            item.downloadLinks.forEach((link) => {
+              const remaining = calculateTimeRemaining(order.createdAt);
+              if (remaining) {
+                if (!newTimeRemaining[order.id]) newTimeRemaining[order.id] = {};
+                newTimeRemaining[order.id][link.id] = {
+                  minutes: remaining.minutes,
+                  seconds: remaining.seconds,
+                };
+              }
+            });
+          }
+        });
+      }
+    });
+    return newTimeRemaining;
+  }, [orders]);
+
+  // Update countdown timer every 5 seconds for digital products
   useEffect(() => {
     const interval = setInterval(() => {
-      const newTimeRemaining: TimeRemaining = {};
-
-      orders.forEach((order) => {
-        if (['PAID', 'DELIVERED'].includes(order.status)) {
-          order.items.forEach((item) => {
-            if (item.product.productType === 'digital' && item.downloadLinks) {
-              item.downloadLinks.forEach((link) => {
-                const remaining = calculateTimeRemaining(order.createdAt);
-                if (remaining) {
-                  if (!newTimeRemaining[order.id]) newTimeRemaining[order.id] = {};
-                  newTimeRemaining[order.id][link.id] = {
-                    minutes: remaining.minutes,
-                    seconds: remaining.seconds,
-                  };
-                }
-              });
-            }
-          });
-        }
-      });
-
-      setTimeRemaining(newTimeRemaining);
-    }, 1000);
-
+      setOrders((prevOrders) => [...prevOrders]); 
+    }, 10000); 
     return () => clearInterval(interval);
-  }, [orders]);
+  }, []);
 
   useEffect(() => {
     const token = getAuthToken();
@@ -99,8 +101,11 @@ export default function OrdersPage() {
 
     const fetchOrders = async () => {
       try {
-        const data = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/user`);
+        const data = await fetchWrapper(
+          `${process.env.NEXT_PUBLIC_API_URL}/order/user?page=${page}&limit=${itemsPerPage}`
+        );
         setOrders(Array.isArray(data.orders) ? data.orders : []);
+        setTotalOrders(data.total || 0);
       } catch (err) {
         console.error('Fetch orders error:', err);
         toast.error('Failed to load orders');
@@ -110,12 +115,9 @@ export default function OrdersPage() {
     };
 
     fetchOrders();
-  }, [router]);
+  }, [router, page]);
 
-  const totalPages = Math.ceil(orders.length / itemsPerPage);
-  const startIndex = (page - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedOrders = orders.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(totalOrders / itemsPerPage);
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return;
@@ -126,10 +128,13 @@ export default function OrdersPage() {
   const handleDownload = async (orderId: string, fileId: string) => {
     try {
       setDownloadingFileId(fileId);
-      const response = await fetchWrapper(`${process.env.NEXT_PUBLIC_API_URL}/order/download/${orderId}/${fileId}`, {
-        method: 'GET',
-        responseType: 'blob',
-      });
+      const response = await fetchWrapper(
+        `${process.env.NEXT_PUBLIC_API_URL}/order/download/${orderId}/${fileId}`,
+        {
+          method: 'GET',
+          responseType: 'blob',
+        }
+      );
 
       const order = orders.find((o) => o.id === orderId);
       const item = order?.items.find((i) => i.downloadLinks?.some((l) => l.id === fileId));
@@ -179,10 +184,10 @@ export default function OrdersPage() {
           My Orders
         </h1>
         <p className={`${sourceSansPro.className} text-sm text-gray-600 mb-2`}>
-          Showing {startIndex + 1}-{Math.min(endIndex, orders.length)} of {orders.length} orders
+          Showing {(page - 1) * itemsPerPage + 1}-{Math.min(page * itemsPerPage, totalOrders)} of {totalOrders} orders
         </p>
         <div className="space-y-4">
-          {paginatedOrders.map((order) => (
+          {orders.map((order) => (
             <div
               key={order.id}
               className="bg-white rounded-xl shadow-sm p-6 border border-gray-100"
@@ -239,7 +244,6 @@ export default function OrdersPage() {
                       <p className={`${sourceSansPro.className} text-sm font-medium text-gray-900`}>
                         {item.product?.name}
                       </p>
-                      
                       <p className={`${sourceSansPro.className} text-xs text-gray-600`}>
                         Qty: {item.quantity} – ₹{(item.variant?.price || item.product?.price).toFixed(2)}
                       </p>
@@ -284,7 +288,7 @@ export default function OrdersPage() {
               </div>
               <Link
                 href={`/orders/${order.id}`}
-                className={`${sourceSansPro.className} text-sm text-gray-900 font-medium mt-4 inline-block transition-colors  hover:text-gray-700`}
+                className={`${sourceSansPro.className} text-sm text-gray-900 font-medium mt-4 inline-block transition-colors hover:text-gray-700`}
               >
                 View Details
               </Link>

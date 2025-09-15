@@ -51,50 +51,10 @@ export interface ProductsResponse {
 }
 
 
-export async function getProducts(params?: {
-  category?: string;
-  page?: number;
-  limit?: number;
-}): Promise<ProductsResponse> {
-  const searchParams = new URLSearchParams();
-  
-  if (params?.category) {
-    searchParams.append('category', params.category);
-  }
-  if (params?.page){
-    searchParams.append('page', params.page.toString());
-  }
-  if (params?.limit){ 
-    searchParams.append('limit', params.limit.toString());
-  }
-
-  const url = `${process.env.NEXT_PUBLIC_API_URL}/products${
-    searchParams.toString() ? `?${searchParams.toString()}` : ''
-  }`;
-
-  const res = await fetch(url, {
-    cache: 'no-store',
-    next: { revalidate: 300 }, // Revalidate every 5 minutes
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch products: ${res.status}`);
-  }
-
-  return res.json();
-}
-
-export async function getProductsByCategory(categoryName: string): Promise<Product[]> {
-  const data = await getProducts();
-  
-  return data.products.filter(product => 
-    product.category.name.toLowerCase() === categoryName.toLowerCase()
-  );
-}
 
 
 export async function getProduct(id: string): Promise<Product> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`, {
+  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/products-with-reviews/${id}`, {
     cache: 'no-store',
     next: { revalidate: 300 },
   });
@@ -104,10 +64,5 @@ export async function getProduct(id: string): Promise<Product> {
   }
 
   return res.json();
-}
-
-// for men
-export async function getMensClothing(): Promise<Product[]> {
-  return getProductsByCategory('Clothing');
 }
 
